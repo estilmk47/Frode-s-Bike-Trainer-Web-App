@@ -1,0 +1,210 @@
+body{
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    width: 100%;
+    height: 100%;
+    margin: 0%;
+    background-color: #424242;
+    color: white;
+    font-family: 'Courier New', Courier, monospace;
+    user-select: none;
+}
+
+canvas{
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+#content{
+    position: absolute;
+    width: 100%;
+}
+
+#backButton{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    width: fit-content;
+    padding: 5px 15px;
+    border: 1px solid white;
+    background-color: black;
+    color: white;
+    font-size: 1.5rem;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    user-select: none;
+    cursor: pointer;
+}
+#backButton:hover{
+    background-color: rgba(255,255,255,0.5);
+}
+
+#home, #profile, #history, #editSkin, #settings, #allApps{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    width: 80%;
+    max-width: 1800px;
+    margin: 50px auto 20px auto;
+    /*background-color: rgba(255,255,255,0.5);*/
+}
+
+#homeMenuOptions{
+    display: flex;
+    flex-direction: row;
+    justify-content: start;
+    /*background-color: rgba(255,255,255,0.5);*/
+    overflow-x: scroll;
+    width: 90%;
+    max-width: fit-content;
+    margin: 5px auto;
+        
+}
+#homeMenuOptions::-webkit-scrollbar {
+    height: 3px;
+}
+#homeMenuOptions::-webkit-scrollbar-thumb {
+    background: #5b5b5b; 
+    border-radius: 1.5px;
+}
+#homeMenuOptions::-webkit-scrollbar-thumb:hover {
+    background: black; 
+}
+
+.homeMenuOptionsElement{
+    width: 5vmin;
+    height: 5vmin;
+    max-width: 500px;
+    max-height: 500px;
+    min-width: 100px;
+    min-height: 100px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    border: 1px solid white;
+    border-radius: 5px;
+    margin: 10px;
+    cursor: pointer;
+
+}
+.homeMenuOptionsElement:hover{
+    background-color: rgba(255,255,255,0.5);
+}
+
+
+#profileContent{
+    display: flex;
+    flex-direction: column;
+    justify-content: start;
+    width: 100%;
+}
+
+.profileContentLine{
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1000px;
+    margin: auto;
+    border-bottom: 1px solid white;
+    padding: 15px 0px;
+    align-items: center;
+
+}
+.profileContentLine:first{
+    border-top: 1px solid white;
+}
+
+.logInLink{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    min-width: fit-content;
+    padding: 5px 15px;
+    width: 100px;
+    text-decoration: none;
+    color: white;
+    border: 1px solid white;
+    background-color: black;
+    margin: 15px auto;
+}
+
+#nickname, #difficulty, #ftp, #weight{
+    display: flex;
+    width: 50%;
+    min-width: 100px;
+    height: 24px;
+    margin: auto 0px auto 5px;
+    background-color: rgba(255,255,255,0.5);
+    border: 1px solid white;
+    padding: 0px;
+    text-align: center;
+    color: white;
+}
+option{
+    background-color: black;
+    border: 1px solid white;
+}
+
+#editSkinBT, #statsBT{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: calc(100% - 30px);
+    max-width: 800px;
+    margin: 10px auto;
+    align-items: center;
+    text-decoration: none;
+    color: white;
+    border: 1px solid white;
+    border-radius: 5px;
+    font-size: 1.5rem;
+    background-color: rgba(0,0,0,0.7);
+    cursor: pointer;
+    padding: 5px 15px;
+}
+
+.blockContainer{
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: fit-content;
+    margin: auto;
+}
+.application{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: center;
+    align-items: center;
+    text-decoration: none;
+    color: white;
+    min-width: 70px;
+    min-height: 70px;
+    width: 20vmin;
+    height: 20vmin;
+    max-width: 150px;
+    max-height: 150px;
+    border: 1px solid white;
+    border-radius: 12px;
+    overflow: hidden;
+    transition: 0.2s;
+    margin: 5px;
+    padding: 5px;
+}
+.application:hover{
+    background-color: rgba(255,255,255,0.5) !important;
+}
+.application>img{
+    width: 100%;
+    height: 100%;
+}

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log In</title>
+</head>
+<body>
+    <style>
+        body{
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            width: 100%;
+            min-width: 320px;
+            background-color: black;
+            color: white;
+            margin: 0px;
+            font-family: 'Courier New', Courier, monospace;
+
+        }
+        #content{
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            width: 90%;
+            margin: 20px auto;
+        }
+        .seperatorLine{
+            display: flex;
+            width: 100%;
+            margin: 15px auto !important;
+            border-bottom: 1px solid white;
+        }
+
+        #home{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 5px 15px;
+            border: 1px solid white;
+            cursor: pointer;
+            color: white;
+            text-decoration: none;
+            text-align: center;
+            margin: 15px auto;
+        }
+
+        #siteChooser{
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+        #logInSite, #registerSite{
+            display: flex;
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            align-content: center;
+            align-items: center;
+            width: 100%;
+        }
+        #logInSite>div, #registerSite>div{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 5px 15px;
+            border: 1px solid white;
+            cursor: pointer;
+            margin-left: 10px;
+        }
+
+        #registerForm, #logInForm{
+            width: 100%;
+            max-width: 800px;
+            margin: auto;
+        }
+
+        #registerFormWarning{
+            display: flex;
+            flex-direction: column;
+            width: calc(100%-30px);
+            box-sizing: border-box;
+            border: 3px dashed red;
+            background-color: yellow;
+            color: rgb(65, 65, 65);
+            /*font-family: 'Times New Roman', Times, serif; /**/
+            padding: 15px;
+            margin: 15px auto;
+        }
+
+        #logIn, #register{
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            text-align: center !important;
+            width: 100px;
+            min-width: fit-content;
+            border: 1px solid white;
+            background-color: rgba(0,0,0,0.5);
+            color: white;
+            font-size: calc(16px + 2vmin);
+            padding: 5px 15px;
+            margin: 15px auto !important;
+            cursor: pointer;
+            transition: 0.4s;
+            border-radius: 5px;
+        }
+        #logIn:hover, #register:hover{
+            background-color: rgba(0,255,0,0.5);
+        }
+        #logInForm>div, #registerForm>div{
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            margin: 5px auto;
+        }
+        
+    </style>
+
+    <!--TODO: make less scuffed looking log in page !!!!! -->
+
+    <div id="content">
+        <a href="../" id="home">Home Menu</a>
+        <div id="siteChooser">
+            <div id="logInSite" style="display: none;"> 
+                Allready a user: <div>Log In</div>
+            </div>
+            <div id="registerSite"> 
+                Not a user: <div>Register</div>
+            </div>
+        </div>
+        <div id="errorMessage"></div>
+        <div id="logInForm">
+            <div class="seperatorLine"></div>
+            <div>
+                username: <input type="text" id="username_logIn">  
+            </div>
+            <div>
+                password: <input type="password" id="password_logIn">  
+            </div>
+            <div id="logIn">Log In</div>
+        </div>
+        <div id="registerForm" style="display: none;">
+            <div class="seperatorLine"></div>
+            <div id="registerFormWarning">
+                <p style="margin: 0px;"> 
+                    <b style="font-size: 2rem; color: red;">DISCLAIMER: </b>
+                    This site is built on trust. Why would anyone want to do something harmful 
+                    against a workout application? However, this does mean that your <b>password</b>,
+                    among other things, will be visible to admin users and may, therefore, be leaked. 
+                    <b>DO NOT</b> provide compromising information to this website, ever.<br><br>
+                    Hope you will enjoy the features this website can bring to your workouts! :)
+                </p>
+            </div>
+            <div class="seperatorLine"></div>
+            <b>Log in information</b>
+                <div>
+                    username*: <input type="text" id="username">  
+                </div>
+                <div>
+                    password*: <input type="text" id="password">  
+                </div>
+                <div>
+                    mail: <input type="text" id="mail">  
+                </div>
+            <div class="seperatorLine"></div>
+            <b>Public information</b>
+                <div>
+                    nickname: <input type="text" id="username">
+                </div>
+            <div class="seperatorLine"></div>
+            <b>Private information</b>
+                <div>
+                    sex: 
+                    <select id="difficulty">
+                        <option value="2">Male</option>
+                        <option value="1">Female</option>
+                        <option value="2">Other</option>
+                    </select>
+                </div>
+                <div>
+                    ftp [watt]: <input type="text" id="weight">
+                </div>
+                <div>
+                    weight [kg]: <input type="text" id="weight">
+                </div>
+                <!--
+                    <div>
+                        maxHeartRate
+                    </div>
+                -->
+
+            <div id="register">Register and Log In</div>
+
+        </div>
+    </div>
+
+    <script>
+
+        if(window.location.href.includes("?")){
+            document.getElementById("logInForm").style.display = "none";
+            document.getElementById("registerSite").style.display = "none";
+            document.getElementById("registerForm").style.display = "block";
+            document.getElementById("logInSite").style.display = "flex";
+        }
+
+        function setCookie(cname, cvalue, exdays) {
+            const d = new Date();
+            d.setTime(d.getTime() + (exdays*24*60*60*1000));
+            let expires = "expires="+ d.toUTCString();
+            document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+        }
+        function removeSpecialCharacters(inputString) {
+            var regexPattern = /[;,\/?:@&=+$\-_.!~*'()#"]/g;
+            var newString = inputString.replace(regexPattern, '');
+            return newString;
+        }
+
+        let inputs = document.querySelectorAll("input");
+        for(var i = 0; i < inputs.length; i++){
+            inputs[i].addEventListener("input", function(){
+                this.value = removeSpecialCharacters(this.value);
+            });
+        }
+
+        document.getElementById("registerSite").addEventListener("click", function(){
+            document.getElementById("logInForm").style.display = "none";
+            document.getElementById("registerSite").style.display = "none";
+            document.getElementById("registerForm").style.display = "block";
+            document.getElementById("logInSite").style.display = "flex";
+        });
+
+        document.getElementById("logInSite").addEventListener("click", function(){
+            document.getElementById("registerForm").style.display = "none";
+            document.getElementById("logInSite").style.display = "none";
+            document.getElementById("logInForm").style.display = "block";
+            document.getElementById("registerSite").style.display = "flex";
+            
+        });
+
+        document.getElementById("logIn").addEventListener("click", function(){
+            let username = document.getElementById("username_logIn").value;
+            let key = document.getElementById("password_logIn").value;
+
+            username = removeSpecialCharacters(username);
+            key = removeSpecialCharacters(key);
+
+            const xml = new XMLHttpRequest();
+            xml.onload(function(){
+                let log = JSON.parse(this.resposneText);
+                if (log.success){
+                    setCookie("username", username, 365);
+                    setCookie("key", key, 365);
+                }
+            });
+            xml.open("POST", "../DB/logIn.php");
+            xml.send("username="+username+"&key="+key);
+
+        });
+        document.getElementById("register").addEventListener("click", function(){
+
+            let postRequest = "";
+            let username = document.getElementById("username");
+
+            const xml = new XMLHttpRequest();
+            xml.onload(function(){
+                let log = JSON.parse(this.resposneText);
+                if (log.success){
+                    setCookie("username", username, 365);
+                    setCookie("key", key, 365);
+                }
+            });
+            xml.open('POST', '../DB/logIn.php');
+            xml.send(postRequest);
+        });
+    </script>
+    
+</body>
+</html>

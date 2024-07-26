@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style/main.css">
+    <!--<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>-->
+    <script defer type="module" src="script/main.js"></script>
+    <title>Bike Trainer</title>
+</head>
+<body>
+    <canvas id="bg"></canvas>
+    <div><p id="fps" style="color: red; position: fixed;">fps: 0</p></div>
+    <div id="content">     
+        <div id="backButton" style="display: none;"> Back </div>   
+        <div id="home">
+            <h1>Home Menu</h1>
+            <div id="homeMenuOptions">
+                <div class="homeMenuOptionsElement" site="mostRecentGame" id="mostRecentGame">Party Spin</div>
+                <div class="homeMenuOptionsElement" site="profile"><img src="assets/UI/profile.png"></div>
+                <div class="homeMenuOptionsElement" site="history"><img src="assets/UI/history.png"></div>
+                <div class="homeMenuOptionsElement" site="settings"><img src="assets/UI/settings.png"></div>                    
+                <div class="homeMenuOptionsElement" site="allApps"><img src="assets/UI/allApps.png"></div>
+            </div>
+        </div>
+        
+        <div id="profile" style="display: none;">
+            <h1>Profile</h1>
+            <div id="loggInOrRegister">
+                <div>
+                    <a href="logIn/" class="logInLink">Logg In</a>
+                    <a href="logIn/?" class="logInLink">Register</a>
+                </div>
+                <div>or continue as Guest</div>
+            </div>
+            <div id="profileContent">
+                <div class="profileContentLine">
+                    <div>Nickname: </div>
+                    <input type="text" id="nickname">
+                </div>
+                <div class="profileContentLine">
+                    <div>Difficulty: </div>
+                    <select id="difficulty">
+                        <option value="1">XX</option>
+                        <option value="2">XY</option>
+                        <option value="3">XA</option>
+                    </select>
+                </div>
+                <div class="profileContentLine">
+                    <div>FTP [Watt]: </div>
+                    <input type="number" id="ftp">
+                </div>
+                <div class="profileContentLine">
+                    <div>Weight [kg]: </div>
+                    <input type="number" id="weight">
+                </div>
+                <div id="editSkinBT" site="editSkin">
+                    Edit Apperance <img src="assets/UI/edit.png" width="28px" height="28px" style="margin: 10px;">
+                </div>
+                <a id="statsBT" href="statistics">
+                    Statistics and Goals <img src="assets/UI/statistics.png" width="28px" height="28px" style="margin: 10px;">
+                </a>
+            </div>
+        </div>
+        <div id="history" style="display: none;">
+            <h1>Session Stack</h1>
+        </div>
+        <div id="settings" style="display: none;">
+            <h1>Settings</h1>
+        </div>   
+        <div id="allApps" style="display: none;"> <!--CONSIDER: making this a dynamic link-->
+            <h1>All Applications</h1>
+            <div class="blockContainer">
+                <a class="application" href="games/Shop">Shop</a>
+                <a class="application" href="games/PartySpin/">Part Spin</a>
+                <a class="application" href="games/TheLegendOfFrode/">The Legend Of Frode</a>
+                <a class="application" href="games/TimeTrails">Time Trails</a>
+                <a class="application" href="games/Ballons">Ballons</a>                
+                <a class="application" href="games/Stats"><img src="assets/UI/statistics.png"></a>
+            </div>
+        </div>   
+
+        <!--Sub Sub Menues -->
+
+        <div id="editSkin" style="display: none;">
+            <h1>Skin</h1>
+        </div>
+        
+    </div>
+</body>
+</html>

@@ -1,0 +1,31 @@
+@keyframes heartBeat {
+    0%{
+        transform: scale(1);
+    }
+    50%{
+        transform: scale(1.1) rotate(2deg);
+    }
+    100%{
+        transform: scale(1);
+    }
+}
+.image-container{
+    position: absolute;
+    top: 0;
+    left: 0;
+    transform-origin: center;
+    transform: translate(-50%, -50%);
+
+    /*background-color: rgba(255, 0, 255, 0.5);/**/
+    background-image: url('absolute/path/to/image.jpg'); /* Replace with image file path */
+    background-size: cover;
+    background-position: center;
+    width: 100%;     
+    /*animation: heartBeat 1s infinite; */
+}
+.image-container::before{
+    /* Default aspect ratio of 16:9 */
+    display: block;
+    content: "";    
+    padding-top: 56.25%;   
+}
