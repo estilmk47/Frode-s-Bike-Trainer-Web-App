@@ -1,0 +1,6 @@
+# Uploaded profile pictures: only the PNG files may be downloaded, nothing here is ever run as code.
+Require all denied
+<FilesMatch "\.png$">
+    Require all granted
+</FilesMatch>
+Options -Indexes

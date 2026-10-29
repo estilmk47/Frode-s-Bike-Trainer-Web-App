@@ -1,0 +1,19 @@
+The HUB (index.html + home-page.js + home-page.css)
+
+The style should be inspired by the home page of a Nintendo Switch device.
+In the middle there should be a list of applications/games to select between. In order to figure out what should be rendered here the home-page.js will request user information from the /server/ using GET or POST (some of these will not require additional information other than the user-authenticator token which will be stored in a cookie).
+Right clicking the application, you get to move it left, right or remove from home. When you remove an application from home you get the message that you can add it back in browse.
+In the top right corner we will have the user profile(s) icon or Log In.
+In the top left we will have the time and an icon telling whether or not bluetooth is available on the user's browser. If it is not we will make the icon dark with an orange notification mark and when clicking on the icon we will display a proper message.
+Under the main line of applications we will have buttons for settings, browse, devices, news, (activities, info).
+
+Load the bluetooth bike and heart-rate monitor from '/modules/node_modules/cycling-power-ble/src/ble_devices.module.js' and the Zwift Click v2 device from '/modules/node_modules/cycling-power-ble/src/zwift_controller.module.js'.
+
+Implementation notes:
+- The hub never navigates away. Pages and applications open in a full-screen overlay frame, so Bluetooth connections survive.
+  Inside the frame, getPlatform() (core/platform.js) returns the hub's instance with the connected devices.
+- URL hash keeps the browser back button working: #/settings/ opens a page, #/app/<id> an application, #devices the devices dialog.
+- Controls (core/navigation.js): mouse/touch, arrow keys + Enter/Escape, or a Zwift Click v2:
+  right shifter = next/previous control (cycles through everything), left shifter = row down/up,
+  A = select (or edit a dropdown/number/date), B = back, Y = options (the right-click menu).
+- While an application is open, the application owns the controller (it calls platform.controller.update() itself).

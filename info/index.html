@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Info · Frode's Bike Trainer</title>
+    <link rel="icon" href="../core/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="../core/style.css">
+    <style>
+        .toc { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+        .info-section { scroll-margin-top: 5rem; }
+        .info-section ul { line-height: 1.6; }
+    </style>
+</head>
+<body>
+    <main class="page" id="page">
+        <nav class="toc" aria-label="Sections">
+            <a class="button small" href="#data-policy">Data policy</a>
+            <a class="button small" href="#history">History</a>
+            <a class="button small" href="#team">About the team</a>
+            <a class="button small" href="#open-source">Open source</a>
+        </nav>
+
+        <section class="section info-section card" id="data-policy">
+            <h2>Data policy</h2>
+            <p>We will not share your data, but we will not deliberately protect it either. This is a spinning game:
+                everything you share or keep in this application should be information you are comfortable with other
+                people knowing – or stealing.</p>
+            <p><strong>Therefore, never provide information that is too personal.</strong> For the same reason we will
+                never ask you to create a password. Logging in happens with a login link sent to your e-mail.</p>
+            <ul>
+                <li><strong>Server:</strong> your username, e-mail, the personal information you enter (nickname,
+                    birthday, gender, weight, FTP, difficulty), your home screen and the sessions you save.
+                    Your e-mail is only used to send login links and is never deliberately shared.</li>
+                <li><strong>Public vs. private:</strong> new profiles are private. A public profile shows your
+                    username, nickname, stats and public sessions to everyone.</li>
+                <li><strong>Profile picture:</strong> a picture you upload is stored on the server as a public file
+                    named after your username – anyone with the link can see it, even when your profile is private.</li>
+                <li><strong>This browser:</strong> settings, local overrides and – when the app runs without the
+                    server – your sessions are stored locally in the browser.</li>
+                <li><strong>Cookies:</strong> only functional cookies that are necessary for the application: one
+                    that remembers which riders are logged in on this device (for one year) and one that remembers
+                    who is riding right now. No tracking, no advertising.</li>
+            </ul>
+        </section>
+
+        <section class="section info-section card" id="history">
+            <h2>History</h2>
+            <p>Frode's Bike Trainer is an open source, free project. It started as a shared dream between
+                <!-- TODO: names --> <em>person X</em> and <em>person Y</em>: making indoor cycling fun by turning the
+                bike into a game controller.</p>
+        </section>
+
+        <section class="section info-section card" id="team">
+            <h2>About the team</h2>
+            <p class="muted"><!-- TODO --> Coming soon.</p>
+        </section>
+
+        <section class="section info-section card" id="open-source">
+            <h2>Open source</h2>
+            <p>The code is free software under the GNU General Public License v3. You can read it, run it yourself and
+                build your own games for it.</p>
+            <p><a href="https://github.com/estilmk47/Frode-s-Bike-Trainer-Web-App" target="_blank" rel="noopener">Source code on GitHub</a>
+                · <a href="../LICENSE" target="_blank">License</a></p>
+            <p class="muted">Bluetooth devices are handled by
+                <a href="https://github.com/estilmk47/Cycling-Power-BLE-JavaScript-module" target="_blank" rel="noopener">cycling-power-ble</a> (MIT).
+                This software comes with no warranty.</p>
+        </section>
+    </main>
+    <script type="module">
+        import { initPage } from '../core/ui.js';
+        await initPage({ title: 'Info', iconName: 'info' });
+    </script>
+</body>
+</html>

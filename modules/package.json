@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "cycling-power-ble": "github:estilmk47/Cycling-Power-BLE-JavaScript-module",
+    "three": "^0.186.1"
+  }
+}

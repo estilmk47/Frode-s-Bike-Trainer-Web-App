@@ -1,0 +1,3 @@
+A user icon, username, non-editable user-stats, privassy: public vs private user 
+
+Principally global editable user stats (if some are greyed out that means the local flag has been set and it will be overwritten)

@@ -1,0 +1,6 @@
+On this page you set your user settings both global settings, information that will be pushed to the database and also information that will be stored in local-storage
+
+Personal Information
+All of these metrcis should have a global and a local option
+
+After a change has been set to any of there should appear two buttons at the bottom asking to save the global and local changes (global are sent server, local are stored in local storage)

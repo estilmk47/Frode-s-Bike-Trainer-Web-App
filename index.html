@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="An open source bike trainer web application: connect your trainer over Bluetooth and play cycling games.">
+    <meta name="theme-color" content="#2d2d2d">
+    <title>Frode's Bike Trainer</title>
+    <link rel="icon" href="core/favicon.svg" type="image/svg+xml">
+    <link rel="stylesheet" href="core/style.css">
+    <link rel="stylesheet" href="home-page.css">
+</head>
+<body class="hub">
+    <header class="hub-top" data-nav-group>
+        <div class="top-left">
+            <time class="clock" id="clock"></time>
+            <button class="status-icon" id="bluetooth-status" title="Bluetooth">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17.71 7.71 12 2h-1v7.59L6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 11 14.41V22h1l5.71-5.71-4.3-4.29 4.3-4.29zM13 5.83l1.88 1.88L13 9.59V5.83zm1.88 10.46L13 18.17v-3.76l1.88 1.88z"/></svg>
+                <span class="badge"></span>
+            </button>
+        </div>
+        <div class="top-right" id="profiles"></div>
+    </header>
+
+    <main class="hub-main">
+        <h2 class="selected-title" id="selected-title" aria-live="polite"></h2>
+        <div class="tiles" id="tiles" role="list" aria-label="Applications" data-nav-group></div>
+        <nav class="shortcuts" id="shortcuts" aria-label="Menu" data-nav-group></nav>
+    </main>
+
+    <footer class="hub-bottom" data-nav-group>
+        <div class="live" id="live"></div>
+        <div class="hints">
+            <span class="hint"><kbd>Y</kbd> Options</span>
+            <span class="hint"><kbd>B</kbd> Back</span>
+            <span class="hint"><kbd>A</kbd> Start</span>
+        </div>
+    </footer>
+
+    <div class="overlay hidden" id="overlay">
+        <button class="home-fab hidden" id="home-fab" title="Back to home">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        </button>
+    </div>
+
+    <noscript><p class="empty">Frode's Bike Trainer needs JavaScript.</p></noscript>
+    <script type="module" src="home-page.js"></script>
+</body>
+</html>

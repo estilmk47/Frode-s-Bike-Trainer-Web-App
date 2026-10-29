@@ -1,0 +1,41 @@
+{
+    "_readme": "Every application/game the hub knows about. id must be unique and never change (it is stored in home layouts and sessions). entry is relative to the project root. status: available | in-development | concept. requires lists devices the app needs: bike, heartRate, controller. Art: every application folder has assets/app_icon.png (square or square-ish), used automatically; set cover to use another image. colors + glyph are shown while the art is missing.",
+    "applications": [
+        {
+            "id": "PartySpin",
+            "title": "Party Spin",
+            "subtitle": "Spin together",
+            "description": "Multiplayer spinning party: create or join a room, race your friends and use power-ups. Work in progress.",
+            "entry": "applications/PartySpin/index.html",
+            "colors": [
+                "#e040fb",
+                "#7ccf5a",
+                "#6fe3c6"
+            ],
+            "glyph": "PS",
+            "status": "in-development",
+            "requires": [
+                "bike"
+            ],
+            "defaultOnHome": true
+        },
+        {
+            "id": "80sGarage",
+            "title": "80s Highway",
+            "subtitle": "Free ride & workouts",
+            "description": "Free ride on your own slope and gears or at a target power, or ride structured workouts (or write your own) under a neon synthwave sun.",
+            "entry": "applications/80sGarage/index.html",
+            "colors": [
+                "#ff3cac",
+                "#784ba0",
+                "#2b86c5"
+            ],
+            "glyph": "80s",
+            "status": "available",
+            "requires": [
+                "bike"
+            ],
+            "defaultOnHome": true
+        }
+    ]
+}

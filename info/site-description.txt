@@ -1,0 +1,13 @@
+Keeping the general style, but then we will have defferent section:
+
+Data Policy
+We will not share your data, but we will not deliberatly protect it either. This is a spinnig game, all information you share or have on this application you should be 
+confortable that other people might know or steel. Therefor, NEVER, provide too personal information, we will also therefor never ask you to create a pasword, login 
+will be. This site stores some information locally in your browser, uses only and wil only use functional application nessesary cookies 
+
+Histrory
+Open source, free project.
+How it started a shared dream between person X and person Y. 
+
+About the Team
+

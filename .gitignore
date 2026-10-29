@@ -1,2 +1,14 @@
-./server/database
-./nodes/
+# Database files – their name is secret (see server/config.php)
+/server/databases/*
+!/server/databases/.empty
+!/server/databases/.htaccess
+
+# Local server configuration (contains the database file name and API keys)
+/server/config.php
+
+# Installed JavaScript modules (run "npm install" inside /modules)
+/modules/node_modules/
+
+# Profile pictures uploaded by users (user data, not part of the source code)
+/assets/user_uploaded_profile_icons/*
+!/assets/user_uploaded_profile_icons/.htaccess

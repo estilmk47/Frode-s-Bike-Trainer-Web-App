@@ -1,0 +1,46 @@
+This is going to ba a very simple free ride type application
+
+(It is important that you are able to connect to devices from here as well, incase you loose connection or you enter this application directly)
+
+I am going to make 3D assets such that we can have a nice render in the background for now use a simple 2D canvas that I will replace or have option to replace later
+The background for now can simply be a 80s themed infinite grid with a sun a dark blue/purple backgroudn some mountains on the side (maybe some palm trees) and an infinite grid as the main part, lett the forgorund animate towards the user depending on the speed or power.
+
+We'll make a backgorund option as part of the UI
+
+In the main menu you are presented with first, you can select between 'Free Ride', 'Browse Workouts' and 'Backgrounds'
+
+For browse workouts you can either select between a library of different workouts. Lets add filters such as duration and effort.
+Each workout is stored in the background using a simple input scheme simiar to json, but it is our own creation:
+A simple comma seperated list. each element is a time (formated as eg. 14m30s or 90s or 1h, etc) followed by a 'b' if it is a break otherwise followed by '@' then a number and either '%' if from ftp or 'W' if it is simply power. To make this efficient you can also add parentesies () and have comma seperated lists inside here and then a number and a 'x' infront of the parenthasies to show how many of these sets. Finnaly you also has the function that must be spelled ramp(start_power, end_power, duration) power and duration follows the format as we have allready described.
+If the user selects to make their own session present them with these rules and give them a nice textbox to add their session. If the session is formatted incorrectly simply display that by highlighting the text-box red or something.  
+
+The main UI is going to be on top center: all the basic stats -> power, heart rate, cadence, speed, distance, elevation, energy. For energy and power you can select between their different options like kCal or kJoule, Power, Power 3s average (actually weighted average) and power/kg simply by clicking on that region and it updates. 
+Use the current users preferences for which units to display. Have an indicator on this UI overlay if it is showing lap stat insted of the whole session.
+(if zwift click is connectd then z laps when realeased, and z and y swap to lap display or session display of stats)
+
+
+The bottom row draws a timeline with a filled in graph at the bottom of how much poser you are producing, the window should be 3 minutes (but you can decide that yourself) and the window should auto-pan when it gets to lets say 80% (but the user can decie this as well)
+Make the top line of the graph a bit more solid color then the rest that can be slightly transparent, use the ftp of the user to calculate zones (5 zones) and color each segment respectivly.
+Also overlay heart-rate on this graph if available (simply in red) if available. 
+Under this draw button suggestion bar that dynamically updates based on what menu you are in.
+
+Main menu:
+Option to lap, option to pause, option to stop, option to start (option to autocontinue or start when power is detected)
+After stop then a menu that displays the summary and options to discard (which needs doble confirmation), save to server or download .tcx
+Option of what is your preferd power display (this may change per session so this is not something that should be a use setting)
+Device options.
+'M' on the keyboard should also bring up the main menu (display this if the swift click is not connected).
+
+For free ride:
+On the left you can select between power target or slope and gear. Arrow up is slope up and arrow down is slope down. Shift up left is gear down and shift up right is gear up.
+Left and Right buttons make you swap between ower target mode or slope and gear (when the menues is not displayed).
+
+For a workout:
+Display the session horizontaly and have a box over displaying time and multiplyer.
+Shift up left (subtracts 2% points to the multiplyer)
+Shift up right (add 2% points to the multiplyer)
+(I do not want it to update the multiplyer by *= 1.02 I want it to add or subtract += 0.02) such that we can get back to 1
+Pressing left or right twice let you move the interval pointer up or down using the up and down buttons.
+
+Make it navigatable by mouse and using the swift 2 clik, y should bring up the general menu, b is allways back and a is allways activate/enetr/return.
+Remember the somewhat 80s aestetics (however also have a clean UI overlay option as well similar style to the main hub)
