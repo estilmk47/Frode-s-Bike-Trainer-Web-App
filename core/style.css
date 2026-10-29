@@ -1,0 +1,407 @@
+/*
+ * Frode's Bike Trainer – shared styles.
+ * Inspired by the Nintendo Switch home screen: calm flat surfaces, big rounded tiles,
+ * a single bright selection colour and round shortcut buttons.
+ * Themes: "basic white" (light) and "basic black" (dark), chosen in Settings (auto follows the OS).
+ */
+
+:root {
+    --bg: #ebebeb;
+    --surface: #ffffff;
+    --surface-2: #f5f5f5;
+    --text: #2d2d2d;
+    --muted: #6e6e6e;
+    --border: #d6d6d6;
+    --accent: #00b4d8;
+    --accent-text: #0089a8;
+    --on-accent: #ffffff;
+    --warning: #ff8a00;
+    --danger: #e0393e;
+    --success: #2fb36d;
+    --shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+    --shadow-lg: 0 10px 40px rgba(0, 0, 0, 0.25);
+    --radius: 6px;
+    --radius-lg: 14px;
+    --font: ui-rounded, "SF Pro Rounded", "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+        --bg: #2d2d2d;
+        --surface: #3b3b3b;
+        --surface-2: #464646;
+        --text: #ffffff;
+        --muted: #b4b4b4;
+        --border: #555555;
+        --accent: #00c8f0;
+        --accent-text: #3fdcff;
+        --shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+        color-scheme: dark;
+    }
+}
+
+:root[data-theme="dark"] {
+    --bg: #2d2d2d;
+    --surface: #3b3b3b;
+    --surface-2: #464646;
+    --text: #ffffff;
+    --muted: #b4b4b4;
+    --border: #555555;
+    --accent: #00c8f0;
+    --accent-text: #3fdcff;
+    --shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font);
+    -webkit-font-smoothing: antialiased;
+}
+
+body { min-height: 100vh; }
+
+/* Keep the cursor clear of the sticky page header and the bottom action bar when scrolling to it. */
+html { scroll-padding-top: 5.5rem; scroll-padding-bottom: 6rem; }
+
+a { color: var(--accent-text); }
+
+h1, h2, h3 { font-weight: 600; margin: 0 0 0.5em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.2rem; }
+h3 { font-size: 1rem; }
+
+p { line-height: 1.55; }
+
+.muted { color: var(--muted); }
+.hidden { display: none !important; }
+/* The hidden attribute must win over display rules like .grid / .card (e.g. the inactive form on the login page). */
+[hidden] { display: none !important; }
+
+svg.icon { width: 1.25em; height: 1.25em; fill: currentColor; flex: none; }
+
+/* ---------- The cursor (the "Switch" cyan frame) ----------
+ * core/navigation.js puts .nav-focus on the selected control. It is shown while <html data-input="nav">
+ * (keyboard or controller) and hidden while the mouse is used (data-input="pointer").
+ */
+
+:focus { outline: none; }
+:root[data-input="nav"] .nav-focus {
+    outline: 3px solid var(--accent);
+    outline-offset: 3px;
+}
+:root .nav-editing,
+:root[data-input="nav"] .nav-editing {
+    outline: 3px dashed var(--warning);
+    outline-offset: 3px;
+    animation: none;
+}
+
+@keyframes pulse-frame {
+    0%, 100% { outline-color: var(--accent); }
+    50% { outline-color: color-mix(in srgb, var(--accent) 45%, white); }
+}
+
+/* ---------- Buttons & inputs ---------- */
+
+button, .button {
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4em;
+    padding: 0.55em 1.2em;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    text-decoration: none;
+    transition: transform 0.08s ease, background 0.15s ease;
+}
+button:hover:not(:disabled), .button:hover { background: var(--surface-2); }
+button:active:not(:disabled) { transform: scale(0.97); }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+button.primary, .button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+}
+button.primary:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 85%, black); }
+button.danger { color: var(--danger); }
+button.ghost { background: transparent; box-shadow: none; border-color: transparent; }
+button.small { padding: 0.3em 0.8em; font-size: 0.85rem; }
+
+input, select, textarea {
+    font: inherit;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.55em 0.75em;
+    width: 100%;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 0; }
+input:disabled, select:disabled { opacity: 0.5; }
+input[type="checkbox"], input[type="radio"] { width: auto; accent-color: var(--accent); }
+
+label.field { display: grid; gap: 0.35em; font-size: 0.9rem; color: var(--muted); }
+label.field > span { font-weight: 600; }
+
+/* Segmented control (tabs, list/calendar toggle, ...) */
+.segmented {
+    display: inline-flex;
+    background: var(--surface-2);
+    border-radius: 999px;
+    padding: 3px;
+    gap: 3px;
+    border: 1px solid var(--border);
+}
+.segmented button {
+    box-shadow: none;
+    border: none;
+    background: transparent;
+    padding: 0.4em 1.1em;
+}
+.segmented button[aria-selected="true"] { background: var(--surface); box-shadow: var(--shadow); color: var(--accent-text); font-weight: 600; }
+
+/* ---------- Cards ---------- */
+
+.card {
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow);
+    padding: 1.25rem;
+}
+
+.grid { display: grid; gap: 1rem; }
+.grid.cols-auto { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 0.75rem;
+}
+.stat {
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: 0.75rem 1rem;
+}
+.stat .value { font-size: 1.4rem; font-weight: 700; }
+.stat .label { font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ---------- Avatars ---------- */
+
+.avatar {
+    --size: 44px;
+    width: var(--size);
+    height: var(--size);
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    font-size: calc(var(--size) * 0.42);
+    color: #fff;
+    background: var(--avatar-color, #888);
+    border: 3px solid var(--surface);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    flex: none;
+    user-select: none;
+}
+.avatar img { width: 100%; height: 100%; object-fit: cover; }
+.avatar.large { --size: 110px; }
+
+/* ---------- Pages (everything except the hub) ---------- */
+
+.page {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 16px 6rem;
+}
+
+.page-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 16px;
+    margin: 0 -16px 1.5rem;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+.page-header h1 { margin: 0; font-size: 1.4rem; flex: 1; display: flex; align-items: center; gap: 0.5em; }
+.page-header h1 svg { color: var(--accent); }
+
+.section { margin-bottom: 2rem; }
+.section > h2 { padding-bottom: 0.4em; border-bottom: 1px solid var(--border); }
+
+.notice {
+    display: flex;
+    gap: 0.75em;
+    align-items: flex-start;
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius);
+    background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+    border-left: 4px solid var(--accent);
+    margin-bottom: 1rem;
+    line-height: 1.45;
+}
+.notice.warning {
+    background: color-mix(in srgb, var(--warning) 14%, var(--surface));
+    border-left-color: var(--warning);
+}
+.notice.error {
+    background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+    border-left-color: var(--danger);
+}
+
+.empty {
+    text-align: center;
+    color: var(--muted);
+    padding: 3rem 1rem;
+}
+
+/* Sticky action bar at the bottom of a page (e.g. Save buttons in Settings) */
+.action-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.9rem 16px;
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--border);
+    z-index: 20;
+}
+
+/* Simple table/list */
+.list { display: grid; gap: 0.5rem; }
+.list-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    text-align: left;
+    width: 100%;
+    border: 1px solid transparent;
+    justify-content: flex-start;
+    border-radius: var(--radius);
+}
+button.list-item:hover { background: var(--surface-2); }
+.list-item .grow { flex: 1; min-width: 0; }
+.list-item .title { font-weight: 600; }
+.list-item .sub { font-size: 0.85rem; color: var(--muted); }
+
+/* ---------- Toasts & modals ---------- */
+
+.toast-host {
+    position: fixed;
+    left: 50%;
+    bottom: 5.5rem;
+    transform: translateX(-50%);
+    display: grid;
+    gap: 0.5rem;
+    z-index: 1000;
+    pointer-events: none;
+    width: min(90vw, 460px);
+}
+.toast {
+    background: var(--text);
+    color: var(--bg);
+    padding: 0.8rem 1.2rem;
+    border-radius: 999px;
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+    animation: toast-in 0.2s ease;
+}
+@keyframes toast-in { from { opacity: 0; transform: translateY(10px); } }
+
+dialog.modal {
+    border: none;
+    border-radius: var(--radius-lg);
+    padding: 0;
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: var(--shadow-lg);
+    width: min(92vw, 560px);
+    max-height: 88vh;
+}
+dialog.modal::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog.modal .modal-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+}
+dialog.modal .modal-head h2 { margin: 0; flex: 1; }
+dialog.modal .modal-body { padding: 1.25rem; overflow: auto; }
+dialog.modal .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    padding: 0 1.25rem 1.25rem;
+}
+
+/* Context menu (right-click on a tile) */
+.context-menu {
+    position: fixed;
+    z-index: 900;
+    min-width: 200px;
+    background: var(--surface);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 0.4rem;
+    display: grid;
+}
+.context-menu button {
+    justify-content: flex-start;
+    border: none;
+    box-shadow: none;
+    border-radius: var(--radius);
+    background: transparent;
+    padding: 0.6em 0.9em;
+}
+.context-menu button:hover:not(:disabled), :root[data-input="nav"] .context-menu button.nav-focus { background: var(--surface-2); }
+.context-menu hr { border: none; border-top: 1px solid var(--border); margin: 0.3rem 0; width: 100%; }
+
+/* Controller button hints, e.g. (A) Start */
+.hint { display: inline-flex; align-items: center; gap: 0.35em; white-space: nowrap; }
+.hint kbd {
+    font: inherit;
+    font-size: 0.75em;
+    font-weight: 700;
+    width: 1.7em;
+    height: 1.7em;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--text);
+    color: var(--bg);
+}
+
+@media (max-width: 600px) {
+    h1 { font-size: 1.3rem; }
+    .page-header h1 { font-size: 1.15rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+}

@@ -1,0 +1,3 @@
+Only us self domain is allowed to post or request these files: create_user, update_user, etc
+Only some other domains are allowed to save sessions
+To only get info you simply only need an api key or be this domain 

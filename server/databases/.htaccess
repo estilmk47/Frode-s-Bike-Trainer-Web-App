@@ -1,0 +1,2 @@
+# Apache: the database must never be downloadable.
+Require all denied

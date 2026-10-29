@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en" data-look="retro">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>80s Highway · Frode's Bike Trainer</title>
+    <link rel="icon" href="assets/app_icon.png">
+    <link rel="stylesheet" href="../../core/style.css">
+    <link rel="stylesheet" href="garage.css">
+</head>
+<body>
+    <div class="background" id="background"></div>
+
+    <div class="hud" id="hud" hidden>
+        <header class="stats-bar" id="stats"></header>
+        <aside class="side" id="side"></aside>
+        <div class="center-message" id="message"></div>
+        <div class="alerts" id="alerts"></div>
+        <button class="menu-button" id="menu-button" data-hud="menu" title="Menu (Y / M)">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg><span>Menu</span>
+        </button>
+        <footer class="bottom">
+            <div class="workout-area" id="workout-area" hidden>
+                <div class="workout-box" id="workout-box"></div>
+                <canvas class="workout-strip" id="workout-strip"></canvas>
+            </div>
+            <canvas class="timeline" id="timeline"></canvas>
+        </footer>
+    </div>
+
+    <div class="hints" id="hints"></div>
+
+    <div class="panel-host" id="panel-host" hidden>
+        <section class="panel" id="panel" aria-live="polite"></section>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

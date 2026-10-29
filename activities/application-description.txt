@@ -1,0 +1,5 @@
+here you can browse all your and your friends cycling stats
+
+Have an option to include friends (then each friend gets a different color)
+
+Swap between a simple list and a calender. 

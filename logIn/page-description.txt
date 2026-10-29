@@ -1,0 +1,11 @@
+Register Page:
+input: username* (need a username, that is unique, if the user is publick, then everyone will)
+input: email* (login will happen via login link sent to the email, this will be privatly saved to the server and never be [deliberatly] shared to others)
+button: Create user and send login-link
+
+Login:
+input: email
+button: send login-link
+
+Login link:
+A loginlink with the username and the user_key is saved in a cookie with a year experation date
