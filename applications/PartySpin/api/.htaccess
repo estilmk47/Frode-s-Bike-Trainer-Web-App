@@ -1,0 +1,4 @@
+# Apache: the shared helpers and the key list are not scripts of their own.
+<FilesMatch "^(partyspin_common|authentication_keys(\.example)?)\.php$">
+    Require all denied
+</FilesMatch>

@@ -12,3 +12,14 @@
 # Profile pictures uploaded by users (user data, not part of the source code)
 /assets/user_uploaded_profile_icons/*
 !/assets/user_uploaded_profile_icons/.htaccess
+
+# Party Spin: who may create rooms (the format is in authentication_keys.example.php)
+/applications/PartySpin/api/authentication_keys.php
+
+# Party Spin server: its settings (which database; the format is in config.example.php), Python caches and the virtual environment (made from requirements.txt)
+/applications/PartySpin/server/config.php
+/applications/PartySpin/server/__pycache__/
+/applications/PartySpin/server/venv/
+
+# The old Party Spin, kept locally for reference
+/applications/PartySpin [[]archive]/

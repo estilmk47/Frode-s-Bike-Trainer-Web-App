@@ -484,11 +484,12 @@ function isSafePath(path) {
     }
 }
 
-function showOverlay(url, mode) {
+/** `app`: the application being opened (apps with ownHomeButton draw their own way home). */
+function showOverlay(url, mode, app = null) {
     closeContextMenu();
     overlayMode = mode;
     overlay.classList.remove('hidden');
-    homeFab.classList.toggle('hidden', mode !== 'app');
+    homeFab.classList.toggle('hidden', mode !== 'app' || !!app?.ownHomeButton);
     document.querySelector('.hub-top').inert = true;
     document.querySelector('.hub-main').inert = true;
     document.querySelector('.hub-bottom').inert = true;
@@ -546,7 +547,7 @@ function route() {
     if (hash !== 'devices' && devicesDialog) devicesDialog.dialog.close();
     if (hash.startsWith('/app/')) {
         const app = platform.app(hash.slice(5));
-        if (app) return showOverlay(new URL(app.entry, BASE_URL).href, 'app');
+        if (app) return showOverlay(new URL(app.entry, BASE_URL).href, 'app', app);
     } else if (hash.startsWith('/') && hash.length > 1 && isSafePath(hash.slice(1))) {
         return showOverlay(new URL(hash.slice(1), BASE_URL).href, 'page');
     }

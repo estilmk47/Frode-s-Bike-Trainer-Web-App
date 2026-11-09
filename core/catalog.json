@@ -1,11 +1,11 @@
 {
-    "_readme": "Every application/game the hub knows about. id must be unique and never change (it is stored in home layouts and sessions). entry is relative to the project root. status: available | in-development | concept. requires lists devices the app needs: bike, heartRate, controller. Art: every application folder has assets/app_icon.png (square or square-ish), used automatically; set cover to use another image. colors + glyph are shown while the art is missing.",
+    "_readme": "Every application/game the hub knows about. id must be unique and never change (it is stored in home layouts and sessions). entry is relative to the project root. status: available | in-development | concept. requires lists devices the app needs: bike, heartRate, controller. ownHomeButton: true when the app draws its own way back to the hub (the hub then hides its floating home button over it). Art: every application folder has assets/app_icon.png (square or square-ish), used automatically; set cover to use another image. colors + glyph are shown while the art is missing.",
     "applications": [
         {
             "id": "PartySpin",
             "title": "Party Spin",
             "subtitle": "Spin together",
-            "description": "Multiplayer spinning party: create or join a room, race your friends and use power-ups. Work in progress.",
+            "description": "A spinning party for a group: one big screen, everyone rides, plays power-up cards on each other and answers Hakoot questions. Needs the Party Spin server (applications/PartySpin/server).",
             "entry": "applications/PartySpin/index.html",
             "colors": [
                 "#e040fb",
@@ -17,7 +17,8 @@
             "requires": [
                 "bike"
             ],
-            "defaultOnHome": true
+            "defaultOnHome": true,
+            "ownHomeButton": true
         },
         {
             "id": "80sGarage",

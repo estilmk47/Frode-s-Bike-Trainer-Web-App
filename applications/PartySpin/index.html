@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Party Spin · Frode's Bike Trainer</title>
+    <link rel="icon" href="assets/app_icon.png">
+    <link rel="stylesheet" href="../../core/style.css">
+    <link rel="stylesheet" href="party.css">
+</head>
+<body>
+    <!-- The backdrop: the brick wall, a solid colour or the host's synced video. -->
+    <div class="backdrop" id="backdrop">
+        <video id="backdrop-video" muted playsinline loop hidden></video>
+    </div>
+
+    <!-- The lobby or a room: drawn by main.js / lobby.js / room.js -->
+    <main class="view" id="view"></main>
+
+    <!-- Pop-ups above the view (cards, questions, the flat tire …) -->
+    <div class="layer" id="layer"></div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>
