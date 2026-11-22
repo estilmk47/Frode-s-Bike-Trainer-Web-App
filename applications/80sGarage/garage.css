@@ -158,10 +158,26 @@ html, body {
     align-items: center;
 }
 
+/* Full screen: in the top right corner, Menu just left of it (Menu takes the corner when there is
+   no full screen, e.g. on iPhones) */
+.fullscreen-button {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: grid;
+    place-items: center;
+}
+.fullscreen-button[hidden] { display: none; }
+.fullscreen-button .icon { width: 22px; height: 22px; }
+.hud:has(.fullscreen-button:not([hidden])) .menu-button { right: 60px; }
+
 /* Stats along the top */
 .stats-bar {
     justify-self: center;
-    margin: 10px 120px 0 70px;
+    margin: 10px 170px 0 70px;   /* room for Menu and full screen on the right */
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -474,3 +490,7 @@ html, body {
     .option-row { grid-template-columns: 1fr; }
     .alerts { top: auto; bottom: 40%; }
 }
+
+/* Phones: no hint bar (keys and controller buttons), and no room kept for it */
+:root[data-phone] .hints { display: none; }
+:root[data-phone] .hud { padding-bottom: 0; }

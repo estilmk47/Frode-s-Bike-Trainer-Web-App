@@ -11,7 +11,7 @@
 require_once dirname(__DIR__, 3) . '/server/api_common.php';
 
 const PS_MAX_NAME = 40;
-const PS_EVENT_TYPES = ['hakoot', 'poker'];   // the kinds of event that can be planned
+const PS_EVENT_TYPES = ['hakoot', 'poker', 'flag'];   // the kinds of event that can be planned
 
 /** The Party Spin settings (../server/config.php; without it the defaults from config.example.php). */
 function ps_config(): array
@@ -47,8 +47,9 @@ if ($ps_path === null) {
     }
 }
 
-// The newest table missing: make what is missing (every statement in the file can run again).
-$ps_tables = $ps_db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'partyspin_run_player'")->fetchColumn();
+// The newest table or event type missing: make what is missing (every statement in the file can run again).
+$ps_tables = $ps_db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'partyspin_run_player'")->fetchColumn()
+    && $ps_db->query("SELECT 1 FROM partyspin_event_type WHERE type = 'flag'")->fetchColumn();
 if (!$ps_tables) {
     $ps_db->exec(file_get_contents(dirname(__DIR__) . '/server/database/create-partyspin-tables.sql'));
 }
@@ -158,13 +159,14 @@ function ps_settings($input): array
     $end = is_array($input['end'] ?? null) ? $input['end'] : [];
     $display = is_array($input['display'] ?? null) ? $input['display'] : [];
     return [
-        'mode' => in_array($input['mode'] ?? '', ['ftp', 'power', 'wkg'], true) ? $input['mode'] : 'ftp',
+        'mode' => in_array($input['mode'] ?? '', ['ftp', 'power', 'wkg', 'speed'], true) ? $input['mode'] : 'ftp',
         'end' => [
             'type' => in_array($end['type'] ?? '', ['time', 'points', 'manual'], true) ? $end['type'] : 'time',
             'value' => ps_number($end['value'] ?? null, 1, 10000000, 30),
         ],
         'powerups' => (bool) ($input['powerups'] ?? true),   // cards can be played
         'break' => (bool) ($input['break'] ?? false),         // nobody scores (switched by moderators in a game)
+        'ignoreDifficulty' => (bool) ($input['ignoreDifficulty'] ?? false),  // everyone scores at normal difficulty (moderators)
         'display' => [
             'background' => in_array($display['background'] ?? '', ['brick', 'color', 'video'], true) ? $display['background'] : 'brick',
             'color' => mb_substr((string) ($display['color'] ?? '#2b1d33'), 0, 20),
@@ -177,6 +179,7 @@ function ps_settings($input): array
  * Browser format (seconds):
  *   hakoot {id, type, at, question, answers: [2-4], correct, image, read, answer, rewards}
  *   poker  {id, type, at, duration, potMin, potMax}
+ *   flag   {id, type, at, flag: 'break' | 'powerups', value: bool}   (switches that setting at its time)
  * In the database: trigger_at / trigger_window in ms, the secret parts in server_info.
  */
 
@@ -186,6 +189,14 @@ function ps_event_row($event): ?array
     if (!is_array($event) || !in_array($event['type'] ?? '', PS_EVENT_TYPES, true)) return null;
     $at = ps_number($event['at'] ?? null, 0, 24 * 3600, 60);
     $id = is_numeric($event['id'] ?? null) ? (int) $event['id'] : null;   // new events have a temporary text id
+    if ($event['type'] === 'flag') {
+        $flag = in_array($event['flag'] ?? '', ['break', 'powerups'], true) ? $event['flag'] : 'break';
+        return [
+            'event_id' => $id, 'type' => 'flag', 'trigger_at' => $at * 1000, 'trigger_window' => 0,
+            'server_info' => [],
+            'device_info' => ['flag' => $flag, 'value' => (bool) ($event['value'] ?? false)],
+        ];
+    }
     if ($event['type'] === 'poker') {
         $duration = ps_number($event['duration'] ?? null, 10, 600, 120);
         $min = ps_number($event['potMin'] ?? null, 0, 1000000, 1000);
@@ -224,6 +235,9 @@ function ps_event_json(array $row): array
     $server = json_decode($row['server_info'] ?? 'null', true) ?: [];
     $device = json_decode($row['device_info'] ?? 'null', true) ?: [];
     $event = ['id' => (int) $row['event_id'], 'type' => $row['type'], 'at' => intdiv((int) $row['trigger_at'], 1000), 'status' => $row['status']];
+    if ($row['type'] === 'flag') {
+        return $event + ['flag' => $device['flag'] ?? 'break', 'value' => (bool) ($device['value'] ?? false)];
+    }
     if ($row['type'] === 'poker') {
         return $event + ['duration' => $device['duration'] ?? 120, 'potMin' => $server['pot_min'] ?? 1000, 'potMax' => $server['pot_max'] ?? 5000];
     }

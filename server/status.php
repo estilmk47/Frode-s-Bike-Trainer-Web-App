@@ -15,4 +15,6 @@ echo json_encode([
     'app' => 'fbt',
     'configured' => is_file($config_file) && extension_loaded('pdo_sqlite'),
     'modules' => in_array($modules, ['local', 'cdn', 'auto'], true) ? $modules : 'auto',
+    // false: no simulated bike or heart rate monitor ('simulators' in config.php)
+    'simulators' => ($config['simulators'] ?? true) !== false,
 ]);

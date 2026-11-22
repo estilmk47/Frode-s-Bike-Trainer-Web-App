@@ -89,9 +89,12 @@ def loads(text, default=None):
 # Browser format (seconds), as in game.py set_quiz and the PHP helpers (ps_event_row / ps_event_json):
 #   hakoot {id, type, at, question, answers, correct, image, read, answer, rewards}
 #   poker  {id, type, at, duration, potMin, potMax}
+#   flag   {id, type, at, flag: 'break' | 'powerups', value: bool}
 
 def plan_row(item):
     """A planned event → (type, trigger_at, trigger_window, server_info, device_info)."""
+    if item['type'] == 'flag':
+        return ('flag', item['at'] * 1000, 0, {}, {'flag': item['flag'], 'value': item['value']})
     if item['type'] == 'poker':
         return ('poker', item['at'] * 1000, item['duration'] * 1000,
                 {'pot_min': item['potMin'], 'pot_max': item['potMax']}, {'duration': item['duration']})
@@ -105,6 +108,8 @@ def plan_item(row):
     server = loads(row['server_info'], {}) or {}
     device = loads(row['device_info'], {}) or {}
     item = {'id': row['event_id'], 'type': row['type'], 'at': (row['trigger_at'] or 0) // 1000}
+    if row['type'] == 'flag':
+        return {**item, 'flag': device.get('flag', 'break'), 'value': bool(device.get('value'))}
     if row['type'] == 'poker':
         return {**item, 'duration': device.get('duration', 120),
                 'potMin': server.get('pot_min', 1000), 'potMax': server.get('pot_max', 5000)}

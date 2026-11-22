@@ -22,6 +22,13 @@ const $ = (selector) => document.querySelector(selector);
 
 const platform = await getPlatform();
 
+/**
+ * A phone: no hints about keys and controller buttons (the bar along the bottom and "Press Enter
+ * to start"); the screen is used by touch, so it gets buttons instead.
+ */
+const IS_PHONE = navigator.userAgentData?.mobile === true || /iPhone|iPod|Android.+Mobile|Windows Phone|Mobi/i.test(navigator.userAgent);
+if (IS_PHONE) document.documentElement.dataset.phone = '';
+
 /* =====================================================================================
  * Preferences (this browser) and custom workouts (per rider, this browser)
  * ===================================================================================== */
@@ -64,6 +71,33 @@ const metric = () => platform.settings.get('units') !== 'imperial';
  * ===================================================================================== */
 
 const backgroundHost = $('#background');
+
+/* ---------- Full screen: the button under Menu, F, or a double-click on the background ---------- */
+
+const canFullscreen = !!document.fullscreenEnabled;   // not on iPhones (Safari only does videos)
+
+function toggleFullscreen() {
+    if (!canFullscreen) return;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else document.documentElement.requestFullscreen().catch(() => {});
+}
+
+function renderFullscreenButton() {
+    const button = $('#fullscreen-button');
+    const on = !!document.fullscreenElement;
+    button.hidden = !canFullscreen;
+    button.innerHTML = icon(on ? 'fullscreen-exit' : 'fullscreen');
+    button.title = `${on ? 'Leave full screen' : 'Full screen'} (F, or double-click the background)`;
+    button.setAttribute('aria-label', on ? 'Leave full screen' : 'Full screen');
+}
+renderFullscreenButton();
+document.addEventListener('fullscreenchange', renderFullscreenButton);
+backgroundHost.addEventListener('dblclick', toggleFullscreen);
+window.addEventListener('keydown', (event) => {
+    if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return;
+    if (event.target.matches?.('input, textarea, select') || document.querySelector('dialog[open]')) return;
+    if (event.key === 'f' || event.key === 'F') toggleFullscreen();
+});
 let background = null;
 
 function setBackground(id) {
@@ -586,11 +620,11 @@ function renderMessage(state, bike) {
     } else if (state === 'idle') {
         html = prefs.autoStart
             ? '<div class="headline">Ready</div><div class="subline">Start pedalling to begin</div>'
-            : `<div class="headline">Ready</div><div class="subline">Press ${keyName('a')} to start</div>`;
+            : `<div class="headline">Ready</div>${IS_PHONE ? '<button class="primary" data-hud="a">Start</button>' : `<div class="subline">Press ${keyName('a')} to start</div>`}`;
     } else if (state === 'paused') {
         html = ride.autoPaused
             ? '<div class="headline">Paused</div><div class="subline">Pedal to continue</div>'
-            : `<div class="headline">Paused</div><div class="subline">Press ${keyName('a')} to continue</div>`;
+            : `<div class="headline">Paused</div>${IS_PHONE ? '<button class="primary" data-hud="a">Continue</button>' : `<div class="subline">Press ${keyName('a')} to continue</div>`}`;
     }
     setHtml($('#message'), 'message', html);
 }
@@ -628,6 +662,7 @@ function hint(key, text) {
 }
 
 function renderHints() {
+    if (IS_PHONE) return;   // no hint bar on phones
     let html = '';
     const top = stack.at(-1);
     if (top) {
@@ -658,6 +693,7 @@ hud.addEventListener('click', (event) => {
     const arg = Number(button.dataset.arg);
     switch (button.dataset.hud) {
         case 'menu': openMenu(); break;
+        case 'fullscreen': toggleFullscreen(); return;
         case 'scope': toggleScope(); break;
         case 'power': ride.powerView = { w: '3s', '3s': 'wkg', wkg: 'w' }[ride.powerView]; break;
         case 'energy': ride.energyView = ride.energyView === 'kj' ? 'kcal' : 'kj'; break;
@@ -668,6 +704,7 @@ hud.addEventListener('click', (event) => {
         case 'mult': changeMultiplier(arg * 0.02); break;
         case 'interval': moveInterval(arg); break;
         case 'devices': show('devices'); break;
+        case 'a': rideAction('a'); break;     // Start / Continue (phones: instead of "Press Enter")
         default: return;
     }
     renderHud(true);
@@ -967,7 +1004,8 @@ function devicesHtml() {
     const bike = platform.bike;
     const hrm = platform.heartRateMonitor;
     const units = platform.controller?.devices ?? [];
-    const btNote = bt ? '' : '<p class="muted">This browser has no Bluetooth (use Chrome or Edge). The simulators work everywhere.</p>';
+    const sim = platform.simulatorsAllowed;
+    const btNote = bt ? '' : `<p class="muted">This browser has no Bluetooth (use Chrome or Edge).${sim ? ' The simulators work everywhere.' : ''}</p>`;
     const modules = platform.modulesError ? `<div class="notice-box"><p>${esc(platform.modulesError)}</p></div>` : '';
     return `${modules}${btNote}<div class="device-cards">
         <section class="device-card ${bike?.isConnected ? 'connected' : ''}" data-nav-group>
@@ -975,7 +1013,7 @@ function devicesHtml() {
             <span class="device-state">${deviceState(bike)}</span>
             <div class="button-row">
                 <button class="${bike?.isConnected ? '' : 'primary'}" data-act="bike-connect" ${bt ? '' : 'disabled'}>${icon('bluetooth')} Connect</button>
-                <button data-act="bike-sim">Simulator</button>
+                ${sim ? '<button data-act="bike-sim">Simulator</button>' : ''}
                 ${bike?.isConnected || bike?.isConnecting ? '<button data-act="bike-off">Disconnect</button>' : ''}
             </div>
         </section>
@@ -984,7 +1022,7 @@ function devicesHtml() {
             <span class="device-state">${deviceState(hrm)}</span>
             <div class="button-row">
                 <button data-act="hr-connect" ${bt ? '' : 'disabled'}>${icon('bluetooth')} Connect</button>
-                <button data-act="hr-sim">Simulator</button>
+                ${sim ? '<button data-act="hr-sim">Simulator</button>' : ''}
                 ${hrm?.isConnected || hrm?.isConnecting ? '<button data-act="hr-off">Disconnect</button>' : ''}
             </div>
         </section>
@@ -1080,10 +1118,10 @@ const SCREENS = {
         render() {
             const bike = connectedBike();
             const notice = bike ? '' : `<div class="notice-box">
-                <p>${icon('bluetooth')} <strong>No bike connected.</strong> Connect your bike or trainer – or try the simulator.</p>
+                <p>${icon('bluetooth')} <strong>No bike connected.</strong> Connect your bike or trainer${platform.simulatorsAllowed ? ' – or try the simulator' : ''}.</p>
                 <div class="button-row" data-nav-group>
                     <button class="primary" data-act="bike-connect" ${platform.bluetooth.available ? '' : 'disabled'}>Connect bike</button>
-                    <button data-act="bike-sim">Use the simulator</button>
+                    ${platform.simulatorsAllowed ? '<button data-act="bike-sim">Use the simulator</button>' : ''}
                 </div></div>`;
             const status = [
                 bike ? `${icon('bike')} ${esc(bike.name ?? 'Bike')}` : null,

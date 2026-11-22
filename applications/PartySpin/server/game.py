@@ -18,8 +18,11 @@ Two settings are switched during a game by moderators: `powerups` (cards can be 
 (nobody scores from riding; cards still work and the clock goes on). Pausing stops the clock and
 is not needed in a normal game.
 
-Planned events (Hakoot questions and poker rounds, made in the create menu or by a moderator) are in
-`quiz`, with their database ids. When a planned question is asked, a copy goes into the log.
+Planned events (Hakoot questions, poker rounds and flags, made in the create menu or by a moderator)
+are in `quiz`, with their database ids. When a planned question is asked, a copy goes into the log.
+A flag switches `break` or `powerups` on or off at its time (a programme: breaks, legs-only parts);
+it is not in the log, riders just see the switch in the top bar. A moderator can still switch by
+hand in between; the next flag switches again.
 """
 import hashlib
 import random
@@ -28,6 +31,7 @@ import time
 
 from cards import CARDS, HAND_SIZE, NOPE, NOPE_WINDOW, PLAYABLE
 
+FLAGS = ('break', 'powerups')    # the settings a planned flag can switch
 QUIZ_LEAD = 15_000      # Hakoot questions are sent this long before they are shown
 ANSWER_GRACE = 1_500    # late answers (network delay) are still accepted for this long
 MAX_POINTS_PER_REPORT = 5_000
@@ -35,10 +39,11 @@ MAX_NAME = 40
 
 DEFAULT_SETTINGS = {
     'name': 'Party Spin',                   # the room's name (a column of its own in the database)
-    'mode': 'ftp',                          # how watts become points: 'ftp' | 'power' | 'wkg'
+    'mode': 'ftp',                          # how riding becomes points: 'ftp' | 'power' | 'wkg' | 'speed'
     'end': {'type': 'time', 'value': 30},   # 'time' (minutes) | 'points' | 'manual'
     'powerups': True,                       # cards can be played
     'break': False,                         # a break: riding gives no points
+    'ignoreDifficulty': False,              # everyone scores at normal difficulty (switched by moderators)
     'display': {'background': 'brick', 'color': '#2b1d33', 'video': ''},
 }
 
@@ -175,6 +180,7 @@ class Room:
         self.dirty = False          # save soon (scores)
         self.log_changed = set()    # log ids (seq) to write
         self.plan_changed = False   # statuses of planned events to write
+        self.settings_changed = False   # settings to write (a flag switched one)
         self.removed = set()        # players to delete
 
     def drain(self):
@@ -448,6 +454,15 @@ class Room:
                 continue
             # Saved events have their database id; new ones a temporary text id until they are saved.
             event_id = item['id'] if isinstance(item.get('id'), int) else str(item.get('id') or tokens.token_hex(4))[:20]
+            if item.get('type') == 'flag':
+                quiz.append({
+                    'id': event_id,
+                    'type': 'flag',
+                    'at': clamp_number(item.get('at'), 0, 24 * 3600, 60),
+                    'flag': item.get('flag') if item.get('flag') in FLAGS else 'break',
+                    'value': bool(item.get('value')),
+                })
+                continue
             if item.get('type') == 'poker':
                 pot_min = clamp_number(item.get('potMin'), 0, 1_000_000, 1000)
                 quiz.append({
@@ -482,7 +497,7 @@ class Room:
 
     def launch(self, quiz_id, now):
         """Show a prepared question a few seconds from now."""
-        question = next((q for q in self.quiz if q['id'] == quiz_id and q.get('type') != 'poker'), None)
+        question = next((q for q in self.quiz if q['id'] == quiz_id and q.get('type', 'hakoot') == 'hakoot'), None)
         if not question:
             raise GameError('That question no longer exists.')
         if self.status != 'running':
@@ -539,6 +554,17 @@ class Room:
             results.append({'player': pid, 'choice': answer['choice'], 'ms': answer['ms'], 'correct': correct, 'cards': cards})
         self._append({'type': 'hakoot-result', 'of': event_id, 'correct': secret['correct'], 'results': results}, now)
 
+    def _switch_flag(self, flag):
+        """A planned flag is due: switch the setting (quiz is sorted by time, so the last one wins)."""
+        self.emitted.add(flag['id'])
+        self.plan_done.add(flag['id'])
+        self.plan_changed = True
+        if self.settings.get(flag['flag']) != flag['value']:
+            self.settings[flag['flag']] = flag['value']
+            self.settings_changed = True
+            self.room_changed = True
+        self.important = True
+
     # ---------------------------------------------------------------- time passes
 
     def tick(self, now):
@@ -551,6 +577,10 @@ class Room:
         if self.status == 'running':
             for question in self.quiz:
                 if question.get('type') == 'poker':     # the rules of poker are still to be decided
+                    continue
+                if question.get('type') == 'flag':
+                    if question['id'] not in self.emitted and clock >= question['at'] * 1000:
+                        self._switch_flag(question)
                     continue
                 if question['id'] not in self.emitted and clock >= question['at'] * 1000 - QUIZ_LEAD:
                     self._emit_question(question, max(question['at'] * 1000, clock + 5_000), now)
@@ -659,13 +689,14 @@ class Room:
 def merge_settings(base, changes):
     settings = {**base, **{k: v for k, v in changes.items() if k in DEFAULT_SETTINGS}}
     settings['name'] = ' '.join(str(settings.get('name') or 'Party Spin').split())[:MAX_NAME]
-    if settings.get('mode') not in ('ftp', 'power', 'wkg'):
+    if settings.get('mode') not in ('ftp', 'power', 'wkg', 'speed'):
         settings['mode'] = 'ftp'
     end = settings.get('end') if isinstance(settings.get('end'), dict) else {}
     end_type = end.get('type') if end.get('type') in ('time', 'points', 'manual') else 'time'
     settings['end'] = {'type': end_type, 'value': clamp_number(end.get('value'), 1, 10_000_000, 30)}
     settings['powerups'] = bool(settings.get('powerups'))
     settings['break'] = bool(settings.get('break'))
+    settings['ignoreDifficulty'] = bool(settings.get('ignoreDifficulty'))
     display = settings.get('display') if isinstance(settings.get('display'), dict) else {}
     settings['display'] = {
         'background': display.get('background') if display.get('background') in ('brick', 'color', 'video') else 'brick',

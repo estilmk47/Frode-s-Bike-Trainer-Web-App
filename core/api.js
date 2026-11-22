@@ -31,10 +31,11 @@ export class ApiError extends Error {
 const OFFLINE_MESSAGE = 'This needs the online server. You are running in local mode, where everything is stored in this browser only.';
 
 /**
- * @returns {Promise<{mode: 'server'|'local', configured: boolean, modules: 'local'|'cdn'|'auto', message?: string}>}
+ * @returns {Promise<{mode: 'server'|'local', configured: boolean, modules: 'local'|'cdn'|'auto', simulators: boolean, message?: string}>}
+ *   simulators: false when 'simulators' is off in server/config.php (local mode: always on)
  */
 export async function detectBackend() {
-    const offline = { mode: 'local', configured: false, modules: 'auto' };
+    const offline = { mode: 'local', configured: false, modules: 'auto', simulators: true };
     try {
         const response = await fetch(new URL('status.php', SERVER_URL), { cache: 'no-store' });
         const type = response.headers.get('content-type') || '';
@@ -42,10 +43,11 @@ export async function detectBackend() {
         const status = await response.json();
         if (status.app !== 'fbt') return offline;
         const modules = status.modules ?? 'auto';
+        const simulators = status.simulators !== false;
         if (!status.configured) {
-            return { ...offline, modules, message: 'The PHP server is running but not configured yet (copy server/config.example.php to server/config.php).' };
+            return { ...offline, modules, simulators, message: 'The PHP server is running but not configured yet (copy server/config.example.php to server/config.php).' };
         }
-        return { mode: 'server', configured: true, modules };
+        return { mode: 'server', configured: true, modules, simulators };
     } catch {
         return offline;
     }
@@ -105,6 +107,11 @@ export class ServerBackend {
 
     async sendLoginLink(email) {
         return this.#request('send_login_link.php', { method: 'POST', body: { email } });
+    }
+
+    /** A new user_key, e-mailed as a new login link: every device (this one too) is logged out. */
+    async newLoginKey() {
+        return this.#request('new_login_key.php', { method: 'POST' });
     }
 
     /** Account fields: is_public, icon, username, email. */

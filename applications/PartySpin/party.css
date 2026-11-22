@@ -48,6 +48,11 @@ html, body {
 }
 .backdrop[data-kind="color"] { background: var(--backdrop-color, #2b1d33); }
 .backdrop video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* Keep the video and the page apart: the video on a layer of its own, and changes in a panel
+   (Events, the leaderboard) only redraw that panel, not what is around or behind it. */
+.backdrop { contain: strict; }
+.backdrop video { will-change: transform; }
+.panel { contain: content; }
 
 .view {
     position: relative;
@@ -68,6 +73,9 @@ html, body {
     backdrop-filter: blur(10px);
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
 }
+/* Over a video the blur would be worked out again for every frame of the video, which makes the
+   playback stutter: no blur there, the panels are a little darker instead. */
+:root[data-backdrop="video"] .glass { backdrop-filter: none; background: rgba(18, 12, 22, 0.82); }
 .row { display: flex; gap: 8px; align-items: center; }
 .row.wrap { flex-wrap: wrap; }
 .stack { display: grid; gap: 12px; }
@@ -120,15 +128,19 @@ hr { border: 0; border-top: 1px solid var(--ps-line); margin: 14px 0; }
 
 /* ---------- Lobby: Join, Create and Spectate stacked, the chosen one open ---------- */
 
-.lobby-head { position: relative; display: flex; flex-direction: column; align-items: center; max-width: 720px; margin: 0 auto 10px; }
+/* The title and the three menus in the middle of the page (top to bottom), with the free space shared
+   above and below them: when an open menu is taller than the page it starts at the top and scrolls. */
+.view.lobby { display: flex; flex-direction: column; }
+.lobby-head { display: contents; }
+.lobby-head .title { align-self: center; margin-top: auto; margin-bottom: 10px; }
+.view.lobby .menu { width: 100%; margin-bottom: auto; }
 /* Home on the left, devices, full screen and server address on the right: in the top corners of the
    page, a row above the title on smaller screens */
 .head-bar { position: fixed; left: 16px; right: 16px; top: 14px; z-index: 5; display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
 .head-bar > * { pointer-events: auto; }
 .head-tools { display: flex; gap: 6px; align-items: center; }
 @media (max-width: 820px) {
-    .lobby-head { gap: 6px; }
-    .head-bar { position: static; width: 100%; }
+    .head-bar { position: static; width: 100%; margin-bottom: 6px; }
 }
 /* A round button that is a picture from assets/UI (full screen) */
 .art-icon { width: 42px; height: 42px; padding: 0; flex: none; border: 0; border-radius: 50%; background: none; box-shadow: none; }
@@ -197,6 +209,7 @@ button.link:hover:not(:disabled) { background: none; }
 .event-time { font-family: var(--ps-fun); font-weight: 400; color: var(--ps-yellow); }
 .event-type { padding: 2px 8px; border-radius: 999px; background: var(--ps-pink); font-size: 0.72rem; font-weight: 700; }
 .event-type[data-type="poker"] { background: var(--ps-lime); color: #1d2610; }
+.event-type[data-type="flag"] { background: #3d6fb0; }
 .event-title { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .devices { display: grid; gap: 8px; }
 .device { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: rgba(255, 255, 255, 0.06); flex-wrap: wrap; }
@@ -208,11 +221,25 @@ button.link:hover:not(:disabled) { background: none; }
 
 /* One line: back · name and status · [switches · the scoring number · lights] · clock · tools.
    On smaller screens the middle part gets a line of its own under the rest (see the end). */
-.hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 6px 10px; border-radius: 28px; }
+/* Lines that wrap keep to the right (devices and full screen end up on the right); only the back
+   button stays on the left. */
+.hud { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px 10px; padding: 6px 10px; border-radius: 28px; }
+.hud-back { margin-right: auto; }
 .hud-room { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 0 1 auto; }
 .hud-room strong { font-family: var(--ps-fun); font-weight: 400; font-size: 1.3rem; color: var(--ps-lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .hud-room .chip { flex: none; }
-.hud-middle { display: flex; flex: 1 1 auto; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 12px; }
+/* Never wraps halfway: one row, or a column when the row doesn't fit (.hud-stacked, set by fitHud in
+   room.js). The room's name and status go when there is no room for them (.hud-no-room). */
+.hud-middle { display: flex; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; justify-content: center; align-items: center; gap: 6px 12px; }
+.hud.hud-stacked .hud-middle { flex-direction: column; justify-content: center; gap: 6px; }
+.hud.hud-no-room .hud-room { display: none; }
+/* The devices button shows the ride: red while recording, yellow when stopped and not saved */
+.hud .art-icon[data-ride] { position: relative; }
+.hud .art-icon[data-ride="running"]::after, .hud .art-icon[data-ride="stopped"]::after {
+    content: ""; position: absolute; top: 2px; right: 2px; width: 10px; height: 10px; border-radius: 50%;
+    background: #ff3b3b; box-shadow: 0 0 6px #ff3b3b;
+}
+.hud .art-icon[data-ride="stopped"]::after { background: var(--ps-yellow); box-shadow: none; }
 .hud-flags, .hud-signals, .hud-tools { display: flex; gap: 6px; align-items: center; }
 .hud-tools { flex: none; }
 .flag, .signal {
@@ -410,9 +437,14 @@ button.stat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
 .bike-stats { display: flex; flex-wrap: wrap; gap: 8px; }
 .bike-stats .stat { flex: 1 1 110px; justify-content: center; padding: 8px 10px; background: rgba(0, 0, 0, 0.3); }
 
-.hand { display: grid; gap: 8px; }
+.hand { display: grid; gap: 8px; container-type: inline-size; }
 .hand .cards { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)) minmax(0, 1.05fr); gap: clamp(4px, 1vw, 10px); max-width: 640px; width: 100%; margin: 0 auto; }
-.hand .card-tile, .hand .nope-slot { width: auto; max-width: 100px; }
+.hand .card-tile, .hand .nope-slot { width: auto; min-width: 0; max-width: 100px; }
+/* Narrow (phones): two rows of three, so the cards stay big enough to read and to tap. */
+@container (max-width: 440px) {
+    .hand .cards { grid-template-columns: repeat(3, minmax(0, 1fr)); max-width: 320px; justify-items: center; }
+    .hand .card-tile, .hand .nope-slot { width: 100%; max-width: 92px; }
+}
 .hand p { margin: 0; text-align: center; }
 .profile-row > .field { flex: 1 1 110px; min-width: 0; }
 .ghost-toggle { display: flex; justify-content: flex-start; align-items: center; gap: 12px; width: 100%; padding: 8px 14px; border-radius: 14px; text-align: left; }
@@ -459,8 +491,13 @@ button.stat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
     background: linear-gradient(160deg, var(--card), color-mix(in srgb, var(--card) 55%, #000));
     color: #fff;
     display: grid;
-    grid-template-rows: 1fr auto;
+    /* minmax(0, …) and min-*: 0 — the picture and the name never make a card bigger than its place,
+       whatever size the picture file is. */
+    grid-template-rows: minmax(0, 1fr) auto;
     justify-items: center;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
     gap: 2px;
     box-shadow: 0 4px 0 rgba(0, 0, 0, 0.45);
     transition: transform 0.12s ease;
@@ -468,8 +505,10 @@ button.stat:hover:not(:disabled) { background: rgba(255, 255, 255, 0.15); }
     font-size: 0.72rem;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
 }
-.card-tile img { width: 80%; height: 100%; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
+.card-tile img { width: 80%; height: 100%; min-width: 0; min-height: 0; object-fit: contain; filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.4)); }
 button.card-tile:hover:not(:disabled) { transform: translateY(-4px) rotate(-2deg); background: linear-gradient(160deg, var(--card), color-mix(in srgb, var(--card) 55%, #000)); }
+.card-tile span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: min(0.72rem, 12.5cqi); }
+.card-tile { container-type: inline-size; }
 .card-tile.empty { border: 2px dashed rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.04); box-shadow: none; }
 .card-tile.small { width: 58px; font-size: 0.65rem; }
 .nope-slot {
@@ -636,3 +675,43 @@ dialog.modal { background: #241a2b; color: #fff; }
     .hud-middle { justify-content: center; }
     .drawer-tabs button { padding: 0.35em 0.8em 0.45em; }
 }
+
+/* ---------- Your ride (session.js): in Devices and the leave menu ---------- */
+
+.ride { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: rgba(255, 255, 255, 0.05); }
+.ride-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.ride-head h3 { margin: 0; font-size: 1.05rem; }
+.ride .tabs { margin: 0; }
+.ride-state[data-state="running"] { background: #ff3b3b; color: #fff; }
+.ride-state[data-state="stopped"] { background: var(--ps-yellow); color: #2a2600; }
+.ride-facts b i { font-style: normal; font-size: 0.75rem; font-weight: 400; color: rgba(255, 255, 255, 0.65); }
+
+/* ---------- Your picture (Profile) ---------- */
+
+.icon-picker { display: grid; gap: 6px; }
+.field-label { font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); }
+.icon-choices { display: flex; flex-wrap: wrap; gap: 8px; }
+.icon-choice { padding: 3px; border-radius: 50%; border: 3px solid transparent; background: none; box-shadow: none; line-height: 0; }
+.icon-choice .avatar { --size: 52px; }
+.icon-choice.selected { border-color: var(--ps-lime); }
+
+/* ---------- Game over ---------- */
+
+.ended .facts { width: 100%; text-align: left; }
+.ended-place { font-size: 1.15rem; }
+.ended-board { max-height: 40vh; overflow: auto; }
+.ended-board li { font-size: 1rem; padding: 6px 12px; }
+.ended-board li .avatar { --size: 32px; }
+.ended-board li span.grow { margin-left: 0; text-align: left; font-family: inherit; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ended .facts.game-facts { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 560px) { .ended .facts.game-facts { grid-template-columns: repeat(2, 1fr); } }
+.ended-board li.me { outline: 2px solid var(--ps-lime); }
+.leave-sheet .row { justify-content: flex-end; }
+
+/* Greyed-out choices (Settings: jump back without a jump; Moderator → Room: the value of "When I end it") */
+label.disabled { opacity: 0.45; cursor: default; }
+.event-kinds button:disabled { opacity: 0.4; }
+.event-kind { flex: none; font-size: 0.65rem; }
+.event-kind[data-kind="hakoot"] { background: var(--ps-pink); }
+.event-kind[data-kind="poker"] { background: #3a7a4a; }
+.event-kind[data-kind="flag"] { background: #3d6fb0; }

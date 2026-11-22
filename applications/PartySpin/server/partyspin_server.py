@@ -108,6 +108,9 @@ class Server:
             await self.save(room)
 
     async def save(self, room):
+        if room.settings_changed:               # a planned flag switched break / power-ups
+            room.settings_changed = False
+            self.store.save_settings(room)
         if not self.store.save(room):
             await self.drop(room, 'deleted')
 

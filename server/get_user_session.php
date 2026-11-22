@@ -47,7 +47,10 @@ if (!empty($_GET['feed'])) {
     $where[] = 's.is_public = 1 AND u.is_public = 1';
 } else {
     $target = find_user_by_username((string) ($_GET['username'] ?? ($viewer['username'] ?? '')));
-    if (!$target) fail('There is no user with that name.', 404, 'not_found');
+    // Somebody else's private profile answers like a name that doesn't exist.
+    if (!$target || ((int) $target['user_id'] !== $viewer_id && (int) $target['is_public'] !== 1)) {
+        fail('There is no user with that name.', 404, 'not_found');
+    }
     $target_id = (int) $target['user_id'];
 
     if ($target_id === $viewer_id) {
@@ -59,7 +62,6 @@ if (!empty($_GET['feed'])) {
             $params[] = $viewer_id;
         }
     } else {
-        if ((int) $target['is_public'] !== 1) respond(['sessions' => []]);
         $where[] = 's.user_id = ? AND s.is_public = 1';
         $params[] = $target_id;
     }

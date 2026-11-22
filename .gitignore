@@ -23,3 +23,9 @@
 
 # The old Party Spin, kept locally for reference
 /applications/PartySpin [[]archive]/
+
+# nginx: the development certificate and its private key (see nginx.conf)
+/certs/
+
+# Party Spin: local class videos (large files, kept on this computer only)
+/applications/PartySpin/assets/local_programs/

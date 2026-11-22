@@ -3,6 +3,7 @@ import { local } from '../../core/storage.js';
 import { esc, icon } from '../../core/ui.js';
 import { deviceId } from './net.js';
 import { cardColor, cardIcon } from './rules.js';
+import { rideHtml, bindRide } from './session.js';
 
 export const $ = (selector, root = document) => root.querySelector(selector);
 
@@ -47,6 +48,7 @@ const video = document.getElementById('backdrop-video');
 export function setBackdrop(display = {}) {
     const kind = display.background ?? 'brick';
     backdrop.dataset.kind = kind;
+    document.documentElement.dataset.backdrop = kind;   // party.css: no blur over a video
     backdrop.style.setProperty('--backdrop-color', kind === 'color' ? display.color || '#2b1d33' : '');
     const src = kind === 'video' && display.video ? display.video : '';
     if (video.dataset.src !== src) {
@@ -56,24 +58,116 @@ export function setBackdrop(display = {}) {
         video.load();
     }
     video.hidden = !src;
+    renderSound();
 }
 
-/** Keep the video at the game clock (seconds since the start) while the game runs. */
-export function syncVideo(clockMs, running) {
-    if (video.hidden || !video.dataset.src || Number.isNaN(video.duration)) return;
+/* ---------- Sound of the background video ---------- */
+// The video always starts muted: browsers only play a video by itself when it is silent. A click on
+// the button is allowed to turn the sound on.
+
+/** The mute / unmute button (hidden unless the background is a video). */
+export const soundButton = () => `<button class="ghost round" data-act="sound" data-sound hidden></button>`;
+
+export function toggleSound() {
+    video.muted = !video.muted;
+    if (!video.muted && video.paused && video.dataset.playing) video.play().catch(() => {});
+    renderSound();
+}
+
+function renderSound() {
+    const state = video.hidden ? 'none' : video.muted ? 'off' : 'on';
+    for (const button of document.querySelectorAll('[data-sound]')) {
+        if (button.dataset.sound === state) continue;
+        button.dataset.sound = state;
+        button.hidden = state === 'none';
+        button.innerHTML = icon(state === 'on' ? 'volume' : 'volume-off');
+        button.title = state === 'on' ? 'Mute the video' : 'Sound on';
+    }
+}
+
+/** play(), and if the browser refuses sound without a click: muted after all. */
+function playVideo() {
+    video.play().catch(() => {
+        if (video.muted) return;
+        video.muted = true;
+        renderSound();
+        video.play().catch(() => {});
+    });
+}
+
+/* Video sync thresholds (seconds of difference between the video and the game clock):
+   below DRIFT_OK nothing is done; up to DRIFT_SEEK the video plays a little faster or slower to
+   catch up (no stutter); beyond it the video jumps (seeks). After a jump the video gets
+   SEEK_REST to load before it may jump again: a big file takes a moment to load at a new place,
+   and jumping again while it loads would keep it from ever playing. */
+const DRIFT_OK = 0.3;
+const DRIFT_SEEK = 4;
+const SEEK_REST = 6000;
+let lastSeek = 0;
+
+function seekVideo(seconds) {
+    lastSeek = performance.now();
+    video.playbackRate = 1;
+    video.currentTime = seconds;
+}
+
+/**
+ * Keep the video at the game clock (seconds since the start). `status` is the room's:
+ * lobby / paused: the video waits at the clock; running: it plays along with the clock;
+ * ended: it plays on by itself to its end (a cool-down after the race), without following the
+ * clock. The video never loops: when it is over, it stays on its last picture.
+ */
+let lastSync = 0;
+
+export function syncVideo(clockMs, status) {
+    renderSound();
+    // The page was busy (the timer came late): the video played on by itself meanwhile. Don't
+    // correct on this look, measure again on the next one.
+    const now = performance.now();
+    const late = now - lastSync > 1000;
+    lastSync = now;
+    if (late && video.dataset.src && !video.paused) return;
     const target = clockMs / 1000;
-    if (!running) {
+    const done = video.ended || target >= video.duration;   // nothing more to play
+    const plays = status === 'running' || status === 'ended';
+    if (plays && !video.ended) video.dataset.playing = '1';
+    else delete video.dataset.playing;
+    if (video.hidden || !video.dataset.src || Number.isNaN(video.duration)) return;
+    // Still loading (or jumping): let it be.
+    if (video.seeking || video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA) {
+        if (plays && !done && video.paused) playVideo();
+        return;
+    }
+    const resting = performance.now() - lastSeek < SEEK_REST;
+    if (!plays) {
         if (!video.paused) video.pause();
-        if (Math.abs(video.currentTime - target) > 0.5 && target < video.duration) video.currentTime = target;
+        video.playbackRate = 1;
+        if (!resting && Math.abs(video.currentTime - target) > 0.5 && target < video.duration) seekVideo(target);
         return;
     }
-    if (target >= video.duration) {
-        // A short video loops along.
-        if (video.paused) video.play().catch(() => {});
+    if (status === 'ended') {
+        // Plays on from where the game ended. Only a screen that comes in after the end (or was far
+        // behind) jumps to the end of the game first.
+        video.playbackRate = 1;
+        if (video.ended) return;
+        if (!resting && video.currentTime < target - DRIFT_SEEK) seekVideo(target);
+        if (video.paused) playVideo();
         return;
     }
-    if (Math.abs(video.currentTime - target) > 1.5) video.currentTime = target;
-    if (video.paused) video.play().catch(() => {});
+    if (done) {
+        // The game is longer than the video: the video stays on its last picture.
+        video.playbackRate = 1;
+        return;
+    }
+    const drift = target - video.currentTime;       // > 0: the video is behind
+    if (Math.abs(drift) > DRIFT_SEEK) {
+        if (!resting) seekVideo(target + 0.5);       // a little ahead: loading takes a moment
+    } else if (Math.abs(drift) > DRIFT_OK) {
+        video.playbackRate = drift > 0 ? 1.1 : 0.9;
+    } else {
+        video.playbackRate = 1;
+    }
+    if (video.paused) playVideo();
 }
 
 /* ---------- Who am I ---------- */
@@ -88,6 +182,7 @@ export function hubProfile(platform) {
         ftp: Number(platform.settings.get('ftp', 200)) || 200,
         weight: Number(platform.settings.get('weight', 75)) || 75,
         difficulty: Number(platform.settings.get('difficulty')) || '',
+        icon: '',       // '' = the profile picture (riders who are logged in), or a file in GUEST_ICONS
         ghost: false,
     };
 }
@@ -112,15 +207,39 @@ export function clearGameProfile() {
 }
 export const hasGameProfile = () => Object.keys(local.get(PROFILE_KEY, {})).some((key) => key !== 'ghost');
 
+/* ---------- The rider's picture in Party Spin ---------- */
+
+/** The pictures everyone can pick (guests: only these). Add files to the folder and they show up. */
+export const GUEST_ICONS = 'applications/PartySpin/assets/guest_player_icons/';     // from the site's root
+const ICON_FILE = /^[A-Za-z0-9_.-]+\.(png|jpe?g|webp|gif)$/i;
+let guestIcons = null;
+
+/** The file names in GUEST_ICONS (api/list_guest_icons.php; none without PHP). */
+export async function listGuestIcons() {
+    if (!guestIcons) {
+        guestIcons = fetch('api/list_guest_icons.php', { cache: 'no-cache' })
+            .then((response) => response.json())
+            .then((data) => (Array.isArray(data.icons) ? data.icons.filter((file) => ICON_FILE.test(file)) : []))
+            .catch(() => []);
+    }
+    return guestIcons;
+}
+
+/** The picture a rider shows: {icon (colour), image (a path from the site's root, '' = the default)}. */
+export function riderAvatar(platform, choice = gameProfile(platform).icon) {
+    const user = platform.isLoggedIn ? platform.user : null;
+    if (choice && ICON_FILE.test(choice)) return { icon: user?.icon ?? '', image: GUEST_ICONS + choice };
+    const image = user?.icon_image && !user.icon_image.startsWith('data:') ? user.icon_image : '';
+    return { icon: user?.icon ?? '', image };
+}
+
 /** The rider as sent to the server. */
 export function riderInfo(platform) {
-    const user = platform.user ?? {};
     const profile = gameProfile(platform);
-    const image = user.icon_image && !user.icon_image.startsWith('data:') ? user.icon_image : '';
     return {
         id: deviceId(),
         name: profile.nickname,
-        avatar: { icon: user.icon ?? '', image },
+        avatar: riderAvatar(platform, profile.icon),
         ftp: profile.ftp,
         weight: profile.weight,
         difficulty: profile.difficulty || null,
@@ -134,12 +253,20 @@ const VIEW_KEY = 'partyspin.view';
 const VIEW_DEFAULTS = {
     power: 'raw',       // POWER_VIEWS in rules.js
     speed: 'kmh',       // SPEED_VIEWS in rules.js
-    autoJump: true,     // go to Events when something happens (and close the drawer)
+    jumpPlanned: true,  // go to Events for a planned event (Hakoot; later poker, toaster …), and close the drawer
+    jumpCards: true,    // go to Events for card events (a card played on you, your flat tyre …)
+    jumpBack: true,     // go back to the panel you were on when the event is over
     onlyMine: true,     // riders: Events shows only what affects you
+    onlyPlanned: false, // spectators: Events shows only planned events (no cards, no effects)
     drawerHeight: 320,  // px
 };
 
-export const viewPrefs = () => ({ ...VIEW_DEFAULTS, ...local.get(VIEW_KEY, {}) });
+export function viewPrefs() {
+    const { autoJump, ...stored } = local.get(VIEW_KEY, {});
+    // The old single "Jump to Events" switch counts for both kinds of event.
+    const old = autoJump === false ? { jumpPlanned: false, jumpCards: false } : {};
+    return { ...VIEW_DEFAULTS, ...old, ...stored };
+}
 export const setViewPrefs = (changes) => local.set(VIEW_KEY, { ...viewPrefs(), ...changes });
 
 /* ---------- Room keys (they make a spectator a moderator of a room) ---------- */
@@ -240,30 +367,38 @@ export function deviceSummary(platform) {
     return `${bike ? esc(bike) : 'No bike'} · ${hr ? esc(hr) : 'no heart rate'}`;
 }
 
-/** The devices pop-up: connect the bike and heart rate monitor (or their simulators). */
-export function showDevices(platform, deviceActions, onChange = () => {}) {
+/**
+ * The devices pop-up: connect the bike and heart rate monitor (or their simulators, unless
+ * 'simulators' is off in server/config.php), and – with a bike – the controls of your ride.
+ * `ride` (session.js) and `title()` (the name the ride is saved with) are optional.
+ */
+export function showDevices(platform, deviceActions, onChange = () => {}, { ride = null, title = () => 'Party Spin' } = {}) {
     const render = () => {
         const bike = platform.bike?.isConnected ? platform.bike : null;
         const hr = platform.heartRateMonitor?.isConnected ? platform.heartRateMonitor : null;
         const bt = platform.bluetooth.available;
-        return `<div class="sheet glass"><h2>Devices</h2>
+        const sim = platform.simulatorsAllowed;
+        const simButton = (act) => (sim ? `<button class="small" data-act="${act}">Simulator</button>` : '');
+        return `<div class="sheet glass devices-sheet"><h2>Devices</h2>
             <div class="devices">
                 <div class="device"><span>${icon('bike')} ${bike ? esc(bike.name) : '<span class="muted">No bike</span>'}</span>${bike ? '<button class="small ghost" data-act="bike-off">Disconnect</button>'
-                    : `<span class="row"><button class="small primary" data-act="bike" ${bt ? '' : 'disabled'}>Connect</button><button class="small" data-act="bike-sim">Simulator</button></span>`}</div>
+                    : `<span class="row"><button class="small primary" data-act="bike" ${bt ? '' : 'disabled'}>Connect</button>${simButton('bike-sim')}</span>`}</div>
                 <div class="device"><span>${icon('heart')} ${hr ? esc(hr.name) : '<span class="muted">No heart rate</span>'}</span>${hr ? '<button class="small ghost" data-act="hr-off">Disconnect</button>'
-                    : `<span class="row"><button class="small" data-act="hr" ${bt ? '' : 'disabled'}>Connect</button><button class="small" data-act="hr-sim">Simulator</button></span>`}</div>
+                    : `<span class="row"><button class="small" data-act="hr" ${bt ? '' : 'disabled'}>Connect</button>${simButton('hr-sim')}</span>`}</div>
                 ${bt ? '' : '<p class="muted small-text">Bluetooth needs Chrome or Edge on https:// or localhost.</p>'}
             </div>
+            ${ride && (bike || ride.unsaved) ? rideHtml(ride, { loggedIn: platform.isLoggedIn }) : ''}
             <button class="primary" data-close>Done</button></div>`;
     };
     const element = popup(render(), { key: 'devices', className: 'center', dismissible: true });
+    const redraw = () => { element.innerHTML = render(); onChange(); };
     element.addEventListener('click', async (event) => {
         const act = event.target.closest('[data-act]')?.dataset.act;
         if (act && deviceActions[act]) {
             await deviceActions[act]();
-            element.innerHTML = render();
-            onChange();
+            redraw();
         }
     });
+    if (ride) bindRide(element, ride, { platform, title, render: redraw });
     return element;
 }

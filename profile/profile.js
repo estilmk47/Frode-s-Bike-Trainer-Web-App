@@ -2,7 +2,7 @@
  * Profile: icon, username, stats (read only), privacy, and the global personal information.
  * profile/?user=<username> shows somebody else's public profile.
  */
-import { initPage, icon, esc, avatar, avatarColor, notify, AVATAR_COLORS, formatDistance, formatDuration, formatNumber } from '../core/ui.js';
+import { initPage, icon, esc, avatar, avatarColor, notify, modal, AVATAR_COLORS, formatDistance, formatDuration, formatNumber } from '../core/ui.js';
 import { chooseProfilePicture } from '../core/icon-editor.js';
 import { createPersonalForm } from '../core/personal-form.js';
 import { sessionRow, bindSessionRows } from '../core/session-ui.js';
@@ -97,9 +97,19 @@ async function renderProfile(user, own) {
             </div>
             <p class="muted">${user.is_public
                 ? 'Everyone can find your profile, stats and public sessions.'
-                : 'Only you can see your profile and sessions.'}
+                : 'Nobody else can find or open your profile, stats or sessions. Friends who added you while you were public only see your name and picture.'}
                 ${user.local ? 'In local mode nothing leaves this browser anyway.' : ''}</p>
         </section>
+
+        ${user.local ? '' : `
+        <section class="section">
+            <h2>Login link</h2>
+            <p class="muted">Your login link works on all your devices, as often as you like, and the e-mail
+                &ldquo;Log in&rdquo; sends is always the same link. Lost a device, or might someone else have your link?
+                Make a new one: the old link stops working, <strong>every device is logged out</strong> (this one too),
+                and the new link is e-mailed to ${esc(user.email)}.</p>
+            <button data-new-login-key>${icon('lock')} New login link…</button>
+        </section>`}
 
         <section class="section">
             <h2>Personal information</h2>
@@ -165,6 +175,7 @@ content.addEventListener('click', async (event) => {
             notify(platform, 'Saved.');
             load();
         }
+        if (button.matches('[data-new-login-key]')) await newLoginKey();
         if (button.dataset.follow !== undefined) {
             await platform.api.setFriend(requested, button.dataset.follow === '1');
             load();
@@ -173,5 +184,26 @@ content.addEventListener('click', async (event) => {
         notify(platform, error.message);
     }
 });
+
+/** A new login link: asks first, then logs this device out and says where the new link went. */
+async function newLoginKey() {
+    const user = platform.user;
+    const sure = await modal({
+        title: 'Make a new login link?',
+        body: `<p>Your current login link stops working, and <strong>every device you are logged in on is logged out</strong>,
+            this one too, and any other sites that save rides for you.</p>
+            <p>The new link is e-mailed to <strong>${esc(user.email)}</strong>. Open it on each device you want to use again.</p>`,
+        actions: [{ label: 'Cancel', value: false }, { label: 'Log out everywhere and send', primary: true, value: true }],
+    }).closed;
+    if (!sure) return;
+    const result = await platform.api.newLoginKey();
+    await platform.logout(user.username);
+    await modal({
+        title: 'Logged out everywhere',
+        body: `<p>${esc(result.message)}</p>${result.login_link
+            ? `<p class="muted">Development mode (no e-mail): <a href="${esc(result.login_link)}">${esc(result.login_link)}</a></p>` : ''}`,
+    }).closed;
+    load();
+}
 
 load();

@@ -13,7 +13,7 @@
                 "#6fe3c6"
             ],
             "glyph": "PS",
-            "status": "in-development",
+            "status": "available",
             "requires": [
                 "bike"
             ],
@@ -36,7 +36,8 @@
             "requires": [
                 "bike"
             ],
-            "defaultOnHome": true
+            "defaultOnHome": true,
+            "ownHomeButton": true
         }
     ]
 }

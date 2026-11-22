@@ -15,7 +15,8 @@ if (!$friend) fail('There is no user with that name.', 404, 'not_found');
 if ((int) $friend['user_id'] === (int) $user['user_id']) fail('You are already your own best friend.', 400, 'self');
 
 if (!empty($body['follow'])) {
-    if ((int) $friend['is_public'] !== 1) fail('Only public profiles can be added as friends.', 403, 'private');
+    // A private profile answers like a name that doesn't exist (nobody learns that it's there).
+    if ((int) $friend['is_public'] !== 1) fail('There is no user with that name.', 404, 'not_found');
     $database->prepare('INSERT OR IGNORE INTO user_friend (user_id, friend_id) VALUES (?, ?)')->execute([$user['user_id'], $friend['user_id']]);
 } else {
     $database->prepare('DELETE FROM user_friend WHERE user_id = ? AND friend_id = ?')->execute([$user['user_id'], $friend['user_id']]);

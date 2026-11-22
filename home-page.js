@@ -288,7 +288,7 @@ $('#bluetooth-status').addEventListener('click', () => {
                     <li>On iPhone and iPad: the <em>Bluefy</em> browser.</li>
                     <li>Linux: you may need to enable <code>chrome://flags/#enable-web-bluetooth</code>.</li>
                 </ul>
-                <p class="muted">Firefox and Safari do not support Web Bluetooth. You can still explore everything with the simulated bike in Devices.</p>`,
+                <p class="muted">Firefox and Safari do not support Web Bluetooth.${platform.simulatorsAllowed ? ' You can still explore everything with the simulated bike in Devices.' : ''}</p>`,
             actions: [{ label: 'Open devices', onClick: () => { openDevices(); } }, { label: 'OK', primary: true }],
         });
     } else if (enabled === false) {
@@ -385,7 +385,7 @@ function renderDevices(liveOnly = false) {
     const hrState = deviceState(hrm);
     const controllers = platform.controller?.devices ?? [];
     const noBluetooth = !platform.bluetooth.available
-        ? `<div class="notice warning">${icon('bluetooth')}<div>Bluetooth is not available in this browser – use the simulator, or open the app in Chrome, Edge or Opera.</div></div>` : '';
+        ? `<div class="notice warning">${icon('bluetooth')}<div>Bluetooth is not available in this browser – ${platform.simulatorsAllowed ? 'use the simulator, or ' : ''}open the app in Chrome, Edge or Opera.</div></div>` : '';
     const modulesError = platform.modulesError ? `<div class="notice error">${esc(platform.modulesError)}</div>` : '';
 
     body.innerHTML = `${modulesError}${noBluetooth}
@@ -399,7 +399,7 @@ function renderDevices(liveOnly = false) {
                 ${bike?.isConnected
                     ? '<button class="small" data-device="bike-off">Disconnect</button>'
                     : `<button class="small primary" data-device="bike" ${btReady ? '' : 'disabled'}>Connect</button>
-                       <button class="small" data-device="bike-sim" ${platform.modulesError ? 'disabled' : ''}>Simulator</button>`}
+                       ${platform.simulatorsAllowed ? `<button class="small" data-device="bike-sim" ${platform.modulesError ? 'disabled' : ''}>Simulator</button>` : ''}`}
             </div>
         </section>
         <section class="device-card ${hrState.ok ? 'connected' : ''}">
@@ -412,7 +412,7 @@ function renderDevices(liveOnly = false) {
                 ${hrm?.isConnected
                     ? '<button class="small" data-device="hr-off">Disconnect</button>'
                     : `<button class="small primary" data-device="hr" ${btReady ? '' : 'disabled'}>Connect</button>
-                       <button class="small" data-device="hr-sim" ${platform.modulesError ? 'disabled' : ''}>Simulator</button>`}
+                       ${platform.simulatorsAllowed ? `<button class="small" data-device="hr-sim" ${platform.modulesError ? 'disabled' : ''}>Simulator</button>` : ''}`}
             </div>
         </section>
         <section class="device-card ${controllers.some((d) => d.connected) ? 'connected' : ''}">
@@ -466,13 +466,12 @@ function navigate(hash) {
 
 /** Go back to the plain home screen without ever leaving the site (also for deep links). */
 function leave() {
-    if (pushedHistory) {
-        pushedHistory = false;
-        history.back();
-    } else {
-        history.replaceState(null, '', location.pathname + location.search);
-        route();
-    }
+    // Not history.back(): an application in the frame adds its own history entries (Party Spin's
+    // rooms), and one step back would only go back inside the application. The hub's address
+    // without the hash is home, always.
+    pushedHistory = false;
+    history.pushState(null, '', location.pathname + location.search);
+    route();
 }
 
 function isSafePath(path) {

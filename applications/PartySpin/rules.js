@@ -16,7 +16,11 @@ export const MODES = {
     ftp: { label: 'Fair (by FTP)', text: 'Points by effort: 100 points/s at 85 % of your own FTP (normal difficulty). Everyone has a chance.' },
     power: { label: 'Raw watts', text: 'Points by power: 100 points/s at 200 W (normal difficulty). The strongest legs win.' },
     wkg: { label: 'Watts per kilo', text: 'Points by power for your weight: 100 points/s at 2.55 W/kg (normal difficulty).' },
+    speed: { label: 'Speed', text: 'Points by speed: 100 points/s at 35 km/h (normal difficulty). Without a speed from the bike it is worked out from your power and weight (flat road).' },
 };
+
+/** Speed mode: the speed that gives 100 points per second at normal difficulty. */
+export const SPEED_BASELINE = 35;   // km/h
 
 export const difficultyShare = (difficulty) => DIFFICULTY_SHARE[difficulty] ?? DIFFICULTY_SHARE[NORMAL];
 
@@ -30,7 +34,12 @@ export function baselineWatts(mode, rider) {
     }
 }
 
-export function pointsPerSecond(power, mode, rider) {
+/** The speed (km/h) that gives 100 points per second for this rider in speed mode. */
+export const baselineSpeed = (rider) => (SPEED_BASELINE * difficultyShare(rider.difficulty)) / DIFFICULTY_SHARE[NORMAL];
+
+/** Points per second from the power that counts – or, in speed mode, from the speed that counts (km/h). */
+export function pointsPerSecond(power, mode, rider, speed = null) {
+    if (mode === 'speed') return speed > 0 ? (100 * speed) / baselineSpeed(rider) : 0;
     if (!power || power < 0) return 0;
     return (100 * power) / baselineWatts(mode, rider);
 }
@@ -167,10 +176,13 @@ export function formatPoints(points) {
 }
 
 /**
- * The number that earns points in this scoring mode, for the top bar: % of FTP (fair), watts (raw)
- * or watts per kilo. `watts` is the power that counts (0 with a flat tyre, the copied rider's …).
+ * The number that earns points in this scoring mode, for the top bar: % of FTP (fair), watts (raw),
+ * watts per kilo or km/h. `watts` / `kmh` are what counts (0 with a flat tyre, the copied rider's …).
  */
-export function scoringStat(mode, watts, rider) {
+export function scoringStat(mode, watts, rider, kmh = null) {
+    if (mode === 'speed') {
+        return { value: kmh == null ? '–' : kmh.toFixed(1), unit: 'km/h', label: 'Your speed (what scores in this room)' };
+    }
     const view = { ftp: 'ftp', power: 'raw', wkg: 'wkg' }[mode] ?? 'ftp';
     const label = { ftp: 'Your effort: % of your FTP', raw: 'Your watts', wkg: 'Your watts per kilo' }[view];
     const shown = formatPower(view, watts, rider);

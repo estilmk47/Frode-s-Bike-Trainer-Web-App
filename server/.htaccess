@@ -1,5 +1,5 @@
 # Apache: keep configuration, the schema template and notes private.
-<FilesMatch "^(config(\.example)?\.php|database_link\.php|api_common\.php|.*\.(sql|txt|md))$">
+<FilesMatch "^(config(\.example)?\.php|database_link\.php|api_common\.php|mailer\.php|test_mail\.php|.*\.(sql|txt|md))$">
     Require all denied
 </FilesMatch>
 Options -Indexes

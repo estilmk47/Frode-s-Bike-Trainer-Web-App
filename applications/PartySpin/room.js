@@ -5,8 +5,10 @@
  *
  *   Top bar     first line: the room's name, its status, the clock and the end condition, devices and
  *               full screen. In the middle (a second line on small screens): the switches (break,
- *               power-ups), the one number that scores in this room (riders: % FTP, watts or W/kg),
- *               and two lights for what is going on (a planned event, power-ups).
+ *               power-ups), the one number that scores in this room (riders: % FTP, watts, W/kg or
+ *               km/h), and two lights for what is going on (a planned event, power-ups). When that
+ *               line doesn't fit it becomes a column (switches / number / lights), and the room's
+ *               name and status are left out when there is no room for them (fitHud).
  *   Main panel  one at a time, chosen with the tabs under the top bar:
  *                 Lobby        the riders, before the game starts (the only panel then)
  *                 Leaderboard  the top 10 on a line (the gaps between them), and the scores
@@ -17,15 +19,19 @@
  *                 Camera       the live animations (later: CAMERA_PANEL)
  *                 Background   nothing but the backdrop (spectators and moderators)
  *   Drawer      at the bottom, dragged up and down (or click a tab), with tabs like folders:
- *               Profile (riders: your bike's numbers, devices, nickname …, ghost mode), Cards
- *               (riders), Settings, Moderator.
+ *               Profile (riders: your bike's numbers, your picture, devices, nickname …, ghost
+ *               mode), Cards (riders), Settings, Moderator.
  *
- * With "Jump to Events" on (Settings), the Events panel opens by itself when something happens
- * (and the drawer closes), and the panel you were on comes back afterwards.
+ * Settings has three jumps: to Events for a planned event (Hakoot …), to Events for a card event
+ * (a card played on you, your flat tyre), and back to the panel you were on when it is over.
  *
- * The bike's real numbers are never changed: they are recorded in a session you can save at the
- * end. Cards only change the *points*: the power used for points (`eff`: 0 with a flat tyre,
- * another rider's watts with Copycat) times the multiplier (EPO ×1.2, Pray ×0, a break ×0).
+ * Recording your ride is up to you (session.js): Devices has Start, Lap and Stop, and the leave menu
+ * (the back button) shows them too while a ride isn't saved. The game over pop-up shows the game,
+ * your place, your numbers in this game and the leaderboard; it only closes (Leave is in the top bar).
+ *
+ * The bike's real numbers are never changed. Cards only change the *points*: the power (or speed)
+ * used for points (`eff`: 0 with a flat tyre, another rider's watts with Copycat) times the
+ * multiplier (EPO ×1.2, Pray ×0, a break ×0).
  *
  * Keys: 1–5 open a card · N Nope · Space pumps the tyre · A–D answer a question · F full screen
  */
@@ -33,17 +39,18 @@ import { DIFFICULTIES } from '../../core/settings.js';
 import { avatar, esc, icon, modal, toast, formatDuration } from '../../core/ui.js';
 import { PartyRoom, authKey } from './net.js';
 import { Leaderboard, ScoreLine, TireGame } from './canvas.js';
-import { editEvent, newEvent } from './event-editor.js';
+import { editEvent, newEvent, eventTitle } from './event-editor.js';
 import {
     MODES, COLORS, POWER_VIEWS, SPEED_VIEWS, pointsPerSecond, activeEffects, incomingCards, describe, formatClock,
     cardArt, cardIcon, cardColor, formatPower, formatPoints, formatSpeedView, flatSpeed, nextView, scoringStat,
 } from './rules.js';
 import {
-    $, popup, closePopup, riderInfo, cardTile, guardRoom, fullscreenButton, devicesButton, toggleFullscreen, showDevices,
+    $, popup, closePopup, riderInfo, cardTile, guardRoom, fullscreenButton, soundButton, toggleSound, devicesButton, toggleFullscreen, showDevices,
     deviceSummary, roomKeyFor, setBackdrop, syncVideo, gameProfile, saveGameProfile, viewPrefs, setViewPrefs,
+    listGuestIcons, riderAvatar,
 } from './shared.js';
+import { rideHtml, bindRide, rideTitle } from './session.js';
 
-const APP_ID = 'PartySpin';
 const CAMERA_PANEL = false;     // switch on when the camera feed has its graphics
 const REPORT_EVERY = 1000;      // ms between the numbers sent to the server
 const STOPPED_BELOW = 15;       // W: the bike counts as stopped for the flat tyre
@@ -64,7 +71,7 @@ const DRAWER_TABS = {
     admin: { label: 'Moderator', color: '#D05CBC' },
 };
 
-export function startRoom({ platform, view, go, deviceActions, editServer }, roomName, role) {
+export function startRoom({ platform, view, go, deviceActions, editServer, ride }, roomName, role) {
     const isPlayer = role === 'player';
     const rider = isPlayer ? riderInfo(platform) : null;
     // Only spectators send the keys that make a moderator.
@@ -79,13 +86,14 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
     let drawerOpen = false;
     let drawerTab = isPlayer ? 'cards' : 'settings';
     let adminTab = 'game';
+    let eventFilter = 'all';        // Moderator → Events: all | hakoot | poker | toaster
     let holding = null;             // the hold-to-confirm button being held
 
     // Riders
-    let tracker = null;
-    let trackerBusy = false;
-    let summaryShown = false;
     let lastReport = performance.now();
+    let gameStats = newGameStats();  // your numbers in this game (for game over), recorded or not
+    let rideTip = false;            // told about Start (Devices) once
+    let guestIcons = null;          // the pictures in GUEST_ICONS (shared.js), once loaded
     let rate = 0;
     let effects = { multiplier: 1, copy: null, flat: null, list: [] };
     let tire = null;                // { game, of, sent }
@@ -97,21 +105,21 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
     view.className = `view room ${isPlayer ? 'as-player' : 'as-screen'}`;
     view.innerHTML = `
         <header class="hud glass">
-            <button class="ghost round" data-act="leave" title="Leave the room">${icon('back')}</button>
+            <button class="ghost round hud-back" data-act="leave" title="Leave the room">${icon('back')}</button>
             <div class="hud-room"><strong data-name>Party Spin</strong><span class="chip" data-status>…</span></div>
             <div class="hud-middle">
                 <div class="hud-flags">
                     <span class="flag" data-flag="break" title="A break: nobody scores, cards still work">Break</span>
                     <span class="flag" data-flag="powerups" title="Power-up cards can be played">Power-ups</span>
                 </div>
-                ${isPlayer ? `<div class="stat score-stat" data-score-stat><img src="assets/UI/Power.png" alt=""><b data-score>–</b><small data-score-unit></small></div>` : ''}
+                ${isPlayer ? `<div class="stat score-stat" data-score-stat><img src="assets/UI/Power.png" alt="" data-score-power><span class="stat-icon" data-score-speed hidden>${icon('bike')}</span><b data-score>–</b><small data-score-unit></small></div>` : ''}
                 <div class="hud-signals">
                     <button class="signal" data-signal="planned" data-act="to-events" title="A planned event (Hakoot …) is on">Event</button>
                     <button class="signal" data-signal="cards" data-act="to-events" title="Power-ups are in play">Cards</button>
                 </div>
             </div>
             <div class="hud-clock"><b data-clock>0:00</b><small data-end></small></div>
-            <div class="hud-tools">${isPlayer ? devicesButton() : ''}${fullscreenButton()}</div>
+            <div class="hud-tools">${isPlayer ? devicesButton() : ''}${isPlayer ? '' : soundButton()}${fullscreenButton()}</div>
         </header>
         <nav class="panel-tabs" data-panel-tabs></nav>
         <div class="banner" data-banner hidden></div>
@@ -176,6 +184,35 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         return power ?? 0;
     }
 
+    /** The speed that counts in speed mode: 0 with a flat tyre, the copied rider's with Copycat. */
+    function effectiveSpeed() {
+        if (!bike()) return null;
+        if (effects.flat) return 0;
+        if (effects.copy) {
+            const source = room.player(effects.copy.source);
+            return source?.speed ?? flatSpeed(source?.power ?? 0, rider.weight);
+        }
+        return speed;
+    }
+
+    function newGameStats() {
+        return { time: 0, energy: 0, power: 0, maxPower: 0, cadence: 0, cadenceTime: 0, hr: 0, hrTime: 0, speed: 0 };
+    }
+
+    /** Add `dt` seconds of riding to this game's numbers (while the game runs and a bike is connected). */
+    function countGame(dt, power) {
+        const g = gameStats;
+        const cadence = bike()?.cadence;
+        const hr = heartRate();
+        g.time += dt;
+        g.energy += ((power ?? 0) * dt) / 1000;
+        g.power += (power ?? 0) * dt;
+        g.maxPower = Math.max(g.maxPower, power ?? 0);
+        g.speed += speed * dt;
+        if (cadence > 0) { g.cadence += cadence * dt; g.cadenceTime += dt; }
+        if (hr > 0) { g.hr += hr * dt; g.hrTime += dt; }
+    }
+
     /** The speed: the bike's own when it has one, otherwise from the power on a flat road (smoothed). */
     function updateSpeed() {
         const now = performance.now();
@@ -202,85 +239,14 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const power = bike()?.power ?? null;
         const eff = effectivePower(power);
         const settings = room.info?.settings;
-        rate = settings?.break ? 0 : pointsPerSecond(eff, settings?.mode, rider) * effects.multiplier;
+        // "Ignore difficulty" (a moderator's switch): everyone scores as on normal difficulty.
+        const scorer = settings?.ignoreDifficulty ? { ...rider, difficulty: 3 } : rider;
+        rate = settings?.break ? 0 : pointsPerSecond(eff, settings?.mode, scorer, effectiveSpeed()) * effects.multiplier;
+        if (room.status === 'running' && bike()) countGame(dt, power);
         if (!room.connected || !room.you) return;
         room.send({
             type: 'stats', power, cadence: bike()?.cadence ?? null, hr: heartRate(), speed: bike() ? Number(speed.toFixed(1)) : null,
             eff: Math.round(eff), mult: settings?.break ? 0 : effects.multiplier, points: room.status === 'running' ? rate * dt : 0,
-        });
-    }
-
-    /* ---------- the session (real bike data) ---------- */
-
-    async function syncTracker() {
-        if (!isPlayer || trackerBusy) return;
-        const status = room.status;
-        if (!tracker && status === 'running' && bike() && !summaryShown) {
-            trackerBusy = true;
-            try {
-                tracker = await platform.createTracker();
-                tracker.start();
-            } catch (error) {
-                toast(platform.modulesError ?? `Recording could not start: ${error.message}`);
-            } finally {
-                trackerBusy = false;
-            }
-            return;
-        }
-        if (!tracker) return;
-        if (status === 'paused' && tracker.isRunning) tracker.pause();
-        if (status === 'running' && tracker.isPaused) tracker.resume();
-        if (status === 'ended' && tracker.state !== 'stopped') tracker.stop();
-    }
-
-    function showSummary(then = null) {
-        if (!tracker || tracker.state === 'idle') { then?.(); return; }
-        if (tracker.state !== 'stopped') tracker.stop();
-        summaryShown = true;
-        const stats = tracker.getStats('total');
-        const me = room.player(room.myId);
-        const element = popup(`
-            <div class="sheet glass summary">
-                <h2>Your ride</h2>
-                <div class="facts">
-                    <div><small>Points</small><b>${formatPoints(me?.score)}</b></div>
-                    <div><small>Time</small><b>${formatDuration(Math.round((stats.activeTime ?? 0) / 1000))}</b></div>
-                    <div><small>Avg power</small><b>${Math.round(stats.power.avg ?? 0)} W</b></div>
-                    <div><small>Max power</small><b>${Math.round(stats.power.max ?? 0)} W</b></div>
-                    <div><small>Avg heart rate</small><b>${stats.heartRate.avg ? Math.round(stats.heartRate.avg) : '–'}</b></div>
-                    <div><small>Energy</small><b>${Math.round(stats.energy ?? 0)} kJ</b></div>
-                </div>
-                <p class="muted">The real numbers from your bike (cards only changed your points).</p>
-                <div class="row wrap">
-                    <button class="primary" data-act="save" ${platform.isLoggedIn ? '' : 'disabled title="Log in to save rides"'}>${icon('activities')} Save to activities</button>
-                    <button data-act="tcx">${icon('download')} Download .tcx</button>
-                    <button class="ghost danger" data-act="discard">Discard</button>
-                    <button class="ghost" data-act="done">Close</button>
-                </div>
-            </div>`, { key: 'summary', className: 'center' });
-        const finish = () => { element.close(); then?.(); };
-        element.addEventListener('click', async (event) => {
-            const act = event.target.closest('[data-act]')?.dataset.act;
-            if (act === 'save') {
-                event.target.disabled = true;
-                try {
-                    await platform.saveSession(tracker, { applicationId: APP_ID, title: `Party Spin · ${roomName}` });
-                    toast('Saved to your activities');
-                    tracker = null;
-                    finish();
-                } catch (error) {
-                    toast(error.message);
-                    event.target.disabled = false;
-                }
-            } else if (act === 'tcx') {
-                tracker.downloadTCX(`party-spin-${roomName.replace(/[^\w-]+/g, '-')}.tcx`);
-            } else if (act === 'discard') {
-                const sure = await modal({ title: 'Discard this ride?', body: 'It will not be saved anywhere.',
-                    actions: [{ label: 'Keep it', value: false }, { label: 'Discard', primary: true, value: true }] }).closed;
-                if (sure) { tracker = null; finish(); }
-            } else if (act === 'done') {
-                finish();
-            }
         });
     }
 
@@ -299,11 +265,13 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const result = question ? null : [...results.values()].reverse().find((r) => clock - r.t < RESULT_SHOW) ?? null;
         // Riders see only what affects them, unless Settings says all (questions are for everyone).
         const mineOnly = isPlayer && prefs.onlyMine;
-        const cards = list
+        // Spectators can leave out the cards and their effects (Settings): only the planned events.
+        const plannedOnly = !isPlayer && prefs.onlyPlanned;
+        const cards = plannedOnly ? [] : list
             .filter((e) => e.type === 'powerup' && (!resolves.has(e.id) || clock - resolves.get(e.id).t < RECENT_CARD))
             .filter((e) => !mineOnly || e.owner === room.myId || e.target === room.myId)
             .map((event) => ({ event, result: resolves.get(event.id) ?? null }));
-        const affected = room.players
+        const affected = (plannedOnly ? [] : room.players)
             .filter((player) => !mineOnly || player.id === room.myId)
             .map((player) => ({ player, fx: activeEffects(list, player.id, clock) }))
             .filter(({ fx }) => fx.list.length);
@@ -314,20 +282,26 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         };
     }
 
-    /** Jump to Events for something new (when the setting is on), and come back when it is over. */
+    /**
+     * Jump to Events for something new: a planned event (Hakoot …) and/or a card event, as Settings
+     * says. With "jump back" on, the panel you were on comes back when it is over.
+     */
     function autoJump(h) {
-        if (!prefs.autoJump || room.status !== 'running' && room.status !== 'paused') return;
+        if (room.status !== 'running' && room.status !== 'paused') return;
         const reasons = [];
-        if (h.question) reasons.push(`q${h.question.id}`);
-        const open = h.cards.filter(({ event, result }) => !result && (!isPlayer || (event.target === room.myId && event.owner !== room.myId)));
-        reasons.push(...open.map(({ event }) => `c${event.id}`));
-        if (isPlayer && effects.flat) reasons.push(`f${effects.flat.of}`);
+        if (h.question && prefs.jumpPlanned) reasons.push(`q${h.question.id}`);
+        if (prefs.jumpCards) {
+            const open = h.cards.filter(({ event, result }) => !result && (!isPlayer || (event.target === room.myId && event.owner !== room.myId)));
+            reasons.push(...open.map(({ event }) => `c${event.id}`));
+            if (isPlayer && effects.flat) reasons.push(`f${effects.flat.of}`);
+        }
         const fresh = reasons.filter((reason) => reason && !jumpedFor.has(reason));
         fresh.forEach((reason) => jumpedFor.add(reason));
         if (fresh.length) {
             if (panel !== 'events') {
-                jumpedFrom = panel;
+                const from = panel;
                 setPanel('events', { auto: true });
+                jumpedFrom = prefs.jumpBack ? from : null;
             }
             closePopup('card');
             setDrawer(false);
@@ -356,6 +330,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const settings = info?.settings;
         set('[data-name]', settings?.name ?? roomName);
         const status = room.connected ? room.status : 'offline';
+        $('.hud [data-act="devices"]', view)?.setAttribute('data-ride', ride.state);
         const chip = $('[data-status]', view);
         set('[data-status]', STATUS_LABELS[status] ?? '…');
         chip.dataset.state = status ?? '';
@@ -366,6 +341,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const clock = room.clock();
         set('[data-clock]', formatClock(clock));
         set('[data-end]', info ? endCondition(settings, clock) : '');
+        fitHud();
 
         const banner = $('[data-banner]', view);
         const text = !room.connected ? 'Connecting to the Party Spin server …' : status === 'paused' ? 'Paused by the host' : '';
@@ -376,12 +352,38 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const power = bike()?.power ?? null;
         if (power != null) powerSamples.push([performance.now(), power]);
         // The one number in the top bar: what earns points here, from the power that counts.
-        const scoring = scoringStat(settings?.mode, bike() ? effectivePower(power) : null, rider);
+        const scoring = scoringStat(settings?.mode, bike() ? effectivePower(power) : null, rider, effectiveSpeed());
         setStat('[data-score]', scoring.value);
         set('[data-score-unit]', scoring.unit);
         const scoreBox = $('[data-score-stat]', view);
         if (scoreBox.title !== scoring.label) scoreBox.title = scoring.label;
+        $('[data-score-power]', view).hidden = settings?.mode === 'speed';
+        $('[data-score-speed]', view).hidden = settings?.mode !== 'speed';
         renderBikeStats(power);
+    }
+
+    /*
+     * The top bar's middle part (switches · number · lights) is one row or – when that row doesn't
+     * fit – a column, never a row that wraps halfway. The room's name and status go when there is no
+     * room for them. Measured again only when something that changes the widths changed.
+     */
+    const hud = $('.hud', view);
+    const narrow = window.matchMedia('(max-width: 1020px)');
+    let hudFitKey = '';
+    function fitHud() {
+        const key = [window.innerWidth, $('[data-name]', hud).textContent, $('[data-status]', hud).textContent,
+            $('[data-score-unit]', hud)?.textContent, $('[data-end]', hud).textContent.length].join('|');
+        if (key === hudFitKey) return;
+        hudFitKey = key;
+        hud.classList.remove('hud-stacked', 'hud-no-room');
+        const middle = $('.hud-middle', hud);
+        const items = [...middle.children].filter((element) => element.offsetWidth > 0);
+        const needed = items.reduce((sum, element) => sum + element.offsetWidth, 0) + 12 * Math.max(0, items.length - 1);
+        if (narrow.matches && needed > middle.clientWidth) hud.classList.add('hud-stacked');
+        const roomBox = $('.hud-room', hud);
+        const name = $('[data-name]', hud);
+        const wanted = $('[data-status]', hud).offsetWidth + 8 + Math.min(name.scrollWidth, 90);
+        if (roomBox.clientWidth < wanted) hud.classList.add('hud-no-room');
     }
 
     /** The bike's own numbers, in Profile (when it is open). */
@@ -412,6 +414,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         if (!auto) jumpedFrom = null;
         panel = id;
         renderPanels();
+        if (id === 'events' && !isPlayer) { const clock = room.clock(); renderEvents(happenings(clock), clock); }
     }
 
     function renderPanels() {
@@ -520,7 +523,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
                 host.innerHTML = `<div class="hakoot glass" data-phase="${phase}">
                     <div class="hakoot-head"><span class="hakoot-logo">Hakoot!</span><b data-count></b></div>
                     <h2>${phase === 'soon' ? 'A question is coming up …' : esc(event.question)}</h2>
-                    ${phase !== 'soon' && (event.image || !isPlayer) ? `<img class="hakoot-image" src="${esc(event.image || 'assets/hakoot/default.jpg')}" alt="">` : ''}
+                    ${phase !== 'soon' && event.image ? `<img class="hakoot-image" src="${esc(event.image)}" alt="">` : ''}
                     ${answers}<p class="muted">${note}</p></div>`;
             }
             const count = phase === 'soon' ? event.start - clock : phase === 'read' ? opens - clock : phase === 'answer' ? closes - clock : 0;
@@ -590,7 +593,9 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         set('[data-tire-text]', texts[1], host);
         set('[data-tire-left]', `${Math.ceil(Math.max(0, flat.until - room.clock()) / 1000)} s`, host);
         $('[data-act="pump"]', host).hidden = tire.game.step !== 'pump';
-        $('[data-act="sim-stop"]', host).hidden = !(tire.game.step === 'stop' && platform.bike?.id === 'simulated-bike');
+        // "Stop pedalling (simulator)" is switched off with `&& false` (disconnecting the bike does the same).
+        // Remove `&& false` to bring the button back for the simulated bike.
+        $('[data-act="sim-stop"]', host).hidden = !(tire.game.step === 'stop' && platform.bike?.id === 'simulated-bike' && false);
         if (tire.game.step === 'done' && !tire.sent) {
             tire.sent = true;
             room.send({ type: 'fixed', of: flat.of });
@@ -742,8 +747,9 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
                     <div class="stat" title="Cadence"><img src="assets/UI/Cadence.png" alt=""><b data-cadence>–</b><small>rpm</small></div>
                     <div class="stat" title="Heart rate"><img src="assets/UI/HeartRate.png" alt=""><b data-hr>–</b><small>bpm</small></div>
                 </div>
-                <div class="device"><span>${icon('bike')} ${deviceSummary(platform)}</span>
-                    <button type="button" class="small" data-act="devices">${icon('bluetooth')} Devices</button></div>
+                <div class="device"><span>${icon('bike')} ${deviceSummary(platform)}${ride.unsaved ? ` · <b>${ride.state === 'running' ? 'recording' : 'ride stopped'}</b>` : ''}</span>
+                    <button type="button" class="small" data-act="devices">${icon('bluetooth')} Devices${ride.unsaved ? '' : ' & recording'}</button></div>
+                ${iconPickerHtml(profile)}
                 <div class="row wrap profile-row">
                     <label class="field grow"><span>Nickname</span><input name="nickname" maxlength="40" value="${esc(profile.nickname)}"></label>
                     <label class="field"><span>FTP (W)</span><input name="ftp" type="number" min="30" max="999" value="${profile.ftp}"></label>
@@ -759,6 +765,26 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
                 </div>
                 <p class="muted small-text">Changes count straight away, for Party Spin only. Click power or speed to change how they are shown.</p>
             </form>`;
+    }
+
+    /** Your picture: your profile picture (riders who are logged in) or one of the guest pictures. */
+    function iconPickerHtml(profile) {
+        if (!guestIcons) {
+            listGuestIcons().then((list) => {
+                if (guestIcons) return;
+                guestIcons = list;
+                if (drawerTab === 'profile') { drawerBody.dataset.html = ''; renderDrawerBody(); }
+            });
+        }
+        const choices = [...(platform.isLoggedIn ? [''] : []), ...(guestIcons ?? [])];
+        const current = choices.includes(profile.icon) ? profile.icon : (platform.isLoggedIn ? '' : null);
+        const buttons = choices.map((choice) => {
+            const picture = riderAvatar(platform, choice);
+            return `<button type="button" class="icon-choice ${choice === current ? 'selected' : ''}" data-pick-icon="${esc(choice)}"
+                title="${choice ? 'A guest picture' : 'Your profile picture'}">${avatar({ username: rider.id, icon: picture.icon, icon_image: picture.image }, 'large')}</button>`;
+        }).join('');
+        const note = platform.isLoggedIn ? '' : '<small class="muted">Log in to ride with your own profile picture.</small>';
+        return `<div class="icon-picker"><span class="field-label">Picture</span>${buttons ? `<div class="icon-choices">${buttons}</div>` : ''}${note}</div>`;
     }
 
     function saveProfile(changes) {
@@ -797,7 +823,6 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             <div class="cards">${slots.join('')}
                 <div class="nope-slot ${nope ? 'has' : ''}" title="Nope: cancel a card played on you">${nope ? cardTile(1, cards, { small: true }) : '<span>Nope</span>'}</div></div>
             ${notes.map((note) => `<p class="muted small-text">${note}</p>`).join('')}
-            <p class="muted small-text">Keys: 1–5 a card · N Nope · A–D answer a question</p>
         </div>`;
     }
 
@@ -854,11 +879,19 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
 
     /* ---------- Settings (everyone) ---------- */
 
+    const anyJump = () => prefs.jumpPlanned || prefs.jumpCards;
+
     function settingsHtml() {
         const option = (views, current) => Object.entries(views).map(([value, label]) => `<option value="${value}" ${value === current ? 'selected' : ''}>${esc(label)}</option>`).join('');
         return `<form class="stack" data-form="view">
-            <label class="check"><input type="checkbox" name="autoJump" ${prefs.autoJump ? 'checked' : ''}>
-                Jump to Events when something happens</label>
+            <label class="check"><input type="checkbox" name="jumpPlanned" ${prefs.jumpPlanned ? 'checked' : ''}>
+                Jump to planned events (Hakoot questions …)</label>
+            <label class="check"><input type="checkbox" name="jumpCards" ${prefs.jumpCards ? 'checked' : ''}>
+                Jump to card events (${isPlayer ? 'a card played on you, your flat tyre' : 'cards waiting for a Nope'})</label>
+            <label class="check ${anyJump() ? '' : 'disabled'}" data-jump-back><input type="checkbox" name="jumpBack" ${prefs.jumpBack && anyJump() ? 'checked' : ''} ${anyJump() ? '' : 'disabled'}>
+                Jump back to where I was when the event is over</label>
+            ${isPlayer ? '' : `<label class="check"><input type="checkbox" name="onlyPlanned" ${prefs.onlyPlanned ? 'checked' : ''}>
+                Only show planned events in Events (Hakoot questions …), not the cards played and their effects</label>`}
             ${isPlayer ? `<label class="check"><input type="checkbox" name="onlyMine" ${prefs.onlyMine ? 'checked' : ''}>
                 Only show what affects me in Events (cards played by or on me, my effects; questions are always shown)</label>
             <div class="row wrap">
@@ -876,7 +909,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         if (!info) return '';
         const s = info.settings;
         const status = room.status;
-        const tabs = [['game', 'Game'], ['quiz', 'Hakoot'], ['room', 'Room'], ['riders', `Riders (${room.players.length})`]];
+        const tabs = [['game', 'Game'], ['room', 'Room'], ['events', 'Events'], ['riders', `Riders (${room.players.length})`]];
         let body = '';
         if (adminTab === 'game') {
             body = `
@@ -891,21 +924,33 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
                     <div class="stack">
                         <label class="switch ${s.break ? 'on' : ''}"><input type="checkbox" data-setting="break" ${s.break ? 'checked' : ''}><span><strong>Break</strong><small>Nobody scores; cards still work, the clock goes on</small></span></label>
                         <label class="switch ${s.powerups ? 'on' : ''}"><input type="checkbox" data-setting="powerups" ${s.powerups ? 'checked' : ''}><span><strong>Power-ups</strong><small>Riders can play their cards</small></span></label>
+                        <label class="switch ${s.ignoreDifficulty ? 'on' : ''}"><input type="checkbox" data-setting="ignoreDifficulty" ${s.ignoreDifficulty ? 'checked' : ''}><span><strong>Ignore difficulty</strong><small>Everyone scores as on normal difficulty, whatever they picked</small></span></label>
                         <div class="row"><button data-admin="deal" ${status === 'running' ? '' : 'disabled'}>Deal cards to everyone</button>
                             <select data-deal><option>1</option><option>2</option><option>3</option></select></div>
                         <p class="muted small-text">Scoring: ${esc(MODES[s.mode]?.label ?? s.mode)} · ${esc(endCondition(s, 0))}</p>
                     </div>
                 </div>`;
-        } else if (adminTab === 'quiz') {
+        } else if (adminTab === 'events') {
+            // The kinds of planned event; poker and the Toaster challenge are greyed until they are made.
+            const kinds = [['all', 'All', true], ['hakoot', 'Hakoot', true], ['flag', 'Flags', true], ['poker', 'Poker', false], ['toaster', 'Toaster challenge', false]];
             const asked = new Set(room.eventList().filter((e) => e.type === 'hakoot').map((e) => e.quiz));
+            const events = (info.quiz ?? []).filter((q) => eventFilter === 'all' || (q.type ?? 'hakoot') === eventFilter).sort((a, b) => a.at - b.at);
+            const kindLabel = { hakoot: 'Hakoot', poker: 'Poker', toaster: 'Toaster', flag: 'Flag' };
+            const none = { all: 'No events yet.', hakoot: 'No questions yet.', flag: 'No flags yet: they switch Break or Power-ups at a time you choose.' };
             body = `
-                <p class="muted small-text">Questions are sent to the riders shortly before their time and shown exactly then. The right answer stays on the server.</p>
-                <ul class="quiz-list">${(info.quiz ?? []).filter((q) => q.type !== 'poker').map((q) => `
-                    <li class="${asked.has(q.id) ? 'asked' : ''}"><b>${formatClock(q.at * 1000)}</b><span class="grow">${esc(q.question)}</span>
-                        <button class="small" data-quiz="launch" data-id="${esc(q.id)}" ${status === 'running' ? '' : 'disabled'} title="Ask it in 8 seconds">Ask now</button>
+                <nav class="tabs event-kinds">${kinds.map(([id, label, ready]) => `<button data-event-filter="${id}" class="${id === eventFilter ? 'active' : ''}" ${ready ? '' : 'disabled title="Coming later"'}>${label}</button>`).join('')}</nav>
+                <p class="muted small-text">Planned events are sent to the riders shortly before their time and shown exactly then. The right answer of a question stays on the server.</p>
+                <ul class="quiz-list">${events.map((q) => `
+                    <li class="${asked.has(q.id) ? 'asked' : ''}"><b>${formatClock(q.at * 1000)}</b>
+                        ${eventFilter === 'all' ? `<span class="chip event-kind" data-kind="${esc(q.type ?? 'hakoot')}">${kindLabel[q.type ?? 'hakoot'] ?? esc(q.type)}</span>` : ''}
+                        <span class="grow">${esc(eventTitle(q))}</span>
+                        ${(q.type ?? 'hakoot') === 'hakoot' ? `<button class="small" data-quiz="launch" data-id="${esc(q.id)}" ${status === 'running' ? '' : 'disabled'} title="Ask it in 8 seconds">Ask now</button>` : ''}
                         <button class="small ghost" data-quiz="edit" data-id="${esc(q.id)}">Edit</button>
-                        <button class="small ghost" data-quiz="delete" data-id="${esc(q.id)}" title="Delete">${icon('close')}</button></li>`).join('') || '<li class="muted">No questions yet.</li>'}</ul>
-                <button class="primary" data-quiz="add">${icon('plus')} Add a question</button>`;
+                        <button class="small ghost" data-quiz="delete" data-id="${esc(q.id)}" title="Delete">${icon('close')}</button></li>`).join('') || `<li class="muted">${none[eventFilter] ?? 'Nothing yet.'}</li>`}</ul>
+                <div class="row wrap">
+                    ${eventFilter !== 'flag' ? `<button class="primary" data-quiz="add">${icon('plus')} Add a Hakoot question</button>` : ''}
+                    ${eventFilter === 'all' || eventFilter === 'flag' ? `<button class="${eventFilter === 'flag' ? 'primary' : ''}" data-quiz="add-flag">${icon('plus')} Add a flag</button>` : ''}
+                </div>`;
         } else if (adminTab === 'room') {
             body = `
                 <form class="stack" data-form="room-settings">
@@ -913,7 +958,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
                         <label class="field"><span>Scoring</span><select name="mode">${Object.entries(MODES).map(([v, m]) => `<option value="${v}" ${v === s.mode ? 'selected' : ''}>${esc(m.label)}</option>`).join('')}</select></label>
                         <label class="field"><span>Game ends</span><select name="endType">
                             ${[['time', 'After a time (minutes)'], ['points', 'At a score'], ['manual', 'When I end it']].map(([v, l]) => `<option value="${v}" ${v === s.end.type ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-                        <label class="field"><span>Value</span><input name="endValue" type="number" min="1" value="${s.end.value}"></label>
+                        <label class="field ${s.end.type === 'manual' ? 'disabled' : ''}" data-end-value><span>Value</span><input name="endValue" type="number" min="1" value="${s.end.value}" ${s.end.type === 'manual' ? 'disabled' : ''}></label>
                     </div>
                     <div class="row wrap">
                         <label class="field"><span>Background</span><select name="background">
@@ -963,7 +1008,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         const item = quiz.find((q) => String(q.id) === id);
         if (action === 'launch') { room.admin('launch', { id: item?.id }); return; }
         if (action === 'delete') { room.admin('quiz', { quiz: quiz.filter((q) => q !== item) }); return; }
-        const edited = await editEvent(item ?? newEvent('hakoot', quiz));
+        const edited = await editEvent(item ?? newEvent(action === 'add-flag' ? 'flag' : 'hakoot', quiz));
         if (!edited) return;
         room.admin('quiz', { quiz: [...quiz.filter((q) => q.id !== edited.id), edited] });
     }
@@ -1039,8 +1084,9 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
 
     const actions = {
         leave: () => leave(),
-        devices: () => showDevices(platform, deviceActions, () => { drawerBody.dataset.html = ''; renderDrawerBody(); }),
+        devices: () => showDevices(platform, deviceActions, () => { drawerBody.dataset.html = ''; renderDrawerBody(); }, { ride, title: savedAs }),
         fullscreen: () => toggleFullscreen(),
+        sound: () => toggleSound(),
         'to-events': () => setPanel('events'),
         'power-view': () => { prefs.power = nextView(POWER_VIEWS, prefs.power); setViewPrefs({ power: prefs.power }); drawerBody.dataset.html = ''; renderDrawerBody(); },
         'speed-view': () => { prefs.speed = nextView(SPEED_VIEWS, prefs.speed); setViewPrefs({ speed: prefs.speed }); drawerBody.dataset.html = ''; renderDrawerBody(); },
@@ -1060,6 +1106,8 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             setDrawer(!(drawerOpen && drawerTab === tab), tab);
             return;
         }
+        const pick = event.target.closest('[data-pick-icon]');
+        if (pick) { saveProfile({ icon: pick.dataset.pickIcon }); return; }
         const slot = event.target.closest('[data-slot]');
         if (slot && drawer.contains(slot)) { openCard(Number(slot.dataset.slot)); return; }
         const choice = event.target.closest('[data-choice]');
@@ -1068,6 +1116,8 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             if (question) answer(question, Number(choice.dataset.choice));
             return;
         }
+        const filterButton = event.target.closest('[data-event-filter]');
+        if (filterButton) { eventFilter = filterButton.dataset.eventFilter; drawerBody.dataset.html = ''; renderDrawerBody(); return; }
         const adminTabButton = event.target.closest('[data-admin-tab]');
         if (adminTabButton) { adminTab = adminTabButton.dataset.adminTab; drawerBody.dataset.html = ''; renderDrawerBody(); return; }
         const adminButton = event.target.closest('[data-admin]');
@@ -1097,11 +1147,26 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             room.admin('settings', { settings: { [event.target.dataset.setting]: event.target.checked } });
             return;
         }
+        if (form?.dataset.form === 'room-settings' && event.target.name === 'endType') {
+            const manual = event.target.value === 'manual';
+            form.elements.endValue.disabled = manual;
+            $('[data-end-value]', form).classList.toggle('disabled', manual);
+        }
         if (form?.dataset.form === 'profile') saveProfile(readProfileForm(form));
         if (form?.dataset.form === 'view') {
             const f = form.elements;
-            prefs = { ...prefs, autoJump: f.autoJump.checked, ...(f.power ? { power: f.power.value, speed: f.speed.value, onlyMine: f.onlyMine.checked } : {}) };
+            prefs = {
+                ...prefs, jumpPlanned: f.jumpPlanned.checked, jumpCards: f.jumpCards.checked,
+                jumpBack: f.jumpBack.disabled && event.target !== f.jumpBack ? prefs.jumpBack : f.jumpBack.checked,
+                ...(f.power ? { power: f.power.value, speed: f.speed.value, onlyMine: f.onlyMine.checked } : {}),
+                ...(f.onlyPlanned ? { onlyPlanned: f.onlyPlanned.checked } : {}),
+            };
+            if (!prefs.jumpBack) jumpedFrom = null;
             setViewPrefs(prefs);
+            // Without a jump there is nothing to jump back from: switched off and greyed (the choice is kept).
+            f.jumpBack.disabled = !anyJump();
+            f.jumpBack.checked = prefs.jumpBack && anyJump();
+            f.jumpBack.closest('label').classList.toggle('disabled', !anyJump());
         }
     });
 
@@ -1141,40 +1206,67 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         }
     };
     window.addEventListener('keydown', onKey);
-    const onResize = () => renderDrawer();
+    const onResize = () => { renderDrawer(); fitHud(); };
     window.addEventListener('resize', onResize);
 
     /* ================================================================ the room */
 
-    let leaving = false;
+    /** The name a ride is saved with. */
+    const savedAs = () => rideTitle(room.info?.settings?.name ?? roomName);
+
+    /** The back button: stay or leave – and the ride's controls while it isn't saved. */
     function leave() {
-        if (leaving) return;
-        leaving = true;
-        const exit = () => go('');
-        if (tracker && tracker.state !== 'idle' && !summaryShown) showSummary(exit);
-        else exit();
+        const render = () => `
+            <div class="sheet glass leave-sheet">
+                <h2>Leave the room?</h2>
+                ${ride.unsaved ? rideHtml(ride, { loggedIn: platform.isLoggedIn }) : ''}
+                ${ride.state === 'running' ? '<p class="muted small-text">Your ride keeps recording when you leave: Devices in the lobby has its controls.</p>' : ''}
+                <div class="row wrap">
+                    <button class="primary" data-close>Stay in the room</button>
+                    <button class="ghost danger" data-act="leave-room">Leave the room</button>
+                </div>
+            </div>`;
+        const element = popup(render(), { key: 'leave', className: 'center', dismissible: true });
+        bindRide(element, ride, { platform, title: savedAs, render: () => { element.innerHTML = render(); } });
+        element.addEventListener('click', (event) => {
+            if (event.target.closest('[data-act="leave-room"]')) go('');
+        });
     }
 
+    /** Game over: the game, your place and numbers, and the leaderboard. It only closes. */
     function showEnded() {
-        const top = room.players.slice(0, 3);
-        const place = isPlayer ? room.players.findIndex((p) => p.id === room.myId) + 1 : 0;
-        const element = popup(`
-            <div class="sheet glass podium">
+        const players = room.players;
+        const place = isPlayer ? players.findIndex((p) => p.id === room.myId) + 1 : 0;
+        const list = room.eventList();
+        const fact = (label, value) => `<div><small>${label}</small><b>${value}</b></div>`;
+        const g = gameStats;
+        const average = (sum, time) => Math.round(sum / time);
+        const numbers = g.time > 0 ? `<div class="facts">
+                ${fact('Points', formatPoints(room.player(room.myId)?.score))}
+                ${fact('Time riding', formatDuration(Math.round(g.time)))}
+                ${fact('Avg power', `${average(g.power, g.time)} W`)}
+                ${fact('Max power', `${Math.round(g.maxPower)} W`)}
+                ${fact('Avg cadence', g.cadenceTime ? `${average(g.cadence, g.cadenceTime)} rpm` : '–')}
+                ${fact('Avg heart rate', g.hrTime ? `${average(g.hr, g.hrTime)} bpm` : '–')}
+                ${fact('Avg speed', `${(g.speed / g.time).toFixed(1)} km/h`)}
+                ${fact('Energy', `${Math.round(g.energy)} kJ`)}
+            </div>` : '<p class="muted">No bike was connected during the game, so there are no numbers from your ride.</p>';
+        popup(`
+            <div class="sheet glass podium ended">
                 <img class="flag" src="assets/UI/finishFlag.png" alt="">
                 <h2>Game over!</h2>
-                <ol>${top.map((p, i) => `<li class="p${i + 1}"><b>${i + 1}</b> ${esc(p.name)} <span>${formatPoints(p.score)}</span></li>`).join('')}</ol>
-                ${place ? `<p>You finished <strong>#${place}</strong> of ${room.players.length}.</p>` : ''}
-                <div class="row wrap">
-                    ${tracker ? `<button class="primary" data-act="summary">${icon('activities')} Your ride</button>` : ''}
-                    <button data-close>Keep watching</button>
-                    <button class="ghost" data-act="lobby">Back to the lobby</button>
+                <div class="facts game-facts">
+                    ${fact('Game time', formatClock(room.clock()))}
+                    ${fact('Riders', players.length)}
+                    ${fact('Cards played', list.filter((e) => e.type === 'powerup').length)}
+                    ${fact('Questions', list.filter((e) => e.type === 'hakoot-result').length)}
                 </div>
+                ${place ? `<p class="ended-place">You finished <strong>#${place}</strong> of ${players.length}</p>${numbers}` : ''}
+                <ol class="ended-board">${players.map((p, i) => `<li class="p${i + 1} ${p.id === room.myId ? 'me' : ''}"><b>${i + 1}</b>
+                    ${avatar({ username: p.id, icon: p.avatar?.icon, icon_image: p.avatar?.image })}
+                    <span class="grow">${esc(p.id === room.myId ? `${p.name} (you)` : p.name)}</span><span>${formatPoints(p.score)}</span></li>`).join('') || '<li class="muted">Nobody rode.</li>'}</ol>
+                <button class="primary" data-close>Keep watching</button>
             </div>`, { key: 'ended', className: 'center', dismissible: true });
-        element.addEventListener('click', (event) => {
-            const act = event.target.closest('[data-act]')?.dataset.act;
-            if (act === 'summary') { element.close(); showSummary(); }
-            if (act === 'lobby') leave();
-        });
     }
 
     function onEvent(event) {
@@ -1184,7 +1276,7 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             if (touchesMe && line) toast(line);
         }
         if (event.type === 'nope' && isPlayer && room.events.get(event.of)?.owner === room.myId) toast(`${playerName(event.by)} said NOPE to your card!`);
-        if (event.type === 'hakoot' && panel !== 'events' && !prefs.autoJump) toast('Hakoot! A question is coming up (Events)');
+        if (event.type === 'hakoot' && panel !== 'events' && !prefs.jumpPlanned) toast('Hakoot! A question is coming up (Events)');
         renderHistory();
     }
 
@@ -1215,23 +1307,27 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
             renderPanels();
             renderLobby();
             renderDrawer();
-            syncTracker();
         }),
         room.on('reset', () => {
             answered.clear();
             jumpedFor.clear();
+            gameStats = newGameStats();
             endedShown = false;
             closePopup('ended');
             renderHistory();
             toast('The host restarted the game');
         }),
         room.on('state', () => {
-            syncTracker();
             renderPanels();
             renderLobby();
             if (drawerTab === 'admin') renderDrawerBody();
-            if (room.status === 'ended' && !endedShown && !summaryShown) {
+            if (isPlayer && room.status === 'running' && !rideTip && bike() && ride.state === 'none') {
+                rideTip = true;
+                toast('Your ride is not being recorded – press Start under Devices to record it');
+            }
+            if (room.status === 'ended' && !endedShown) {
                 endedShown = true;
+                closePopup('leave');
                 showEnded();
             }
         }),
@@ -1239,8 +1335,8 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         room.on('error', (error) => {
             if (error.code !== 'no-room') toast(error.message);
         }),
-        room.on('closed', () => { toast('The room was deleted'); leave(); }),
-        room.on('kicked', () => { toast('The host removed you from the room'); leave(); }),
+        room.on('closed', () => { toast('The room was deleted'); go(''); }),
+        room.on('kicked', () => { toast('The host removed you from the room'); go(''); }),
     );
 
     function renderAll() {
@@ -1263,12 +1359,21 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         autoJump(h);
         renderHud(h);
         renderMe();
-        renderEvents(h, clock);
+        // Spectators: Events is only built while it is on screen (it is the busiest part of the page).
+        if (isPlayer || panel === 'events') renderEvents(h, clock);
         renderIncoming();
-        if (canSeeBackground()) syncVideo(clock, room.status === 'running');
     }, 200);
+    // The background video keeps its own timer, apart from everything above: however much is going
+    // on in the game, the video is checked on time (see syncVideo in shared.js).
+    const videoTimer = !isPlayer ? setInterval(() => {
+        if (canSeeBackground()) syncVideo(room.clock(), room.status);
+    }, 250) : null;
+    let canvasFrame = 0;
     let frame = requestAnimationFrame(function draw() {
-        if (panel === 'board') {
+        // Over a video the leaderboard is drawn at half the screen's rate (30 instead of 60 times a
+        // second): it looks the same and leaves room for the video.
+        const skip = !isPlayer && document.documentElement.dataset.backdrop === 'video' && (canvasFrame++ & 1);
+        if (panel === 'board' && !skip) {
             scoreLine.draw(room.players, { me: room.myId });
             board.draw(room.players, { me: room.myId, badges });
         }
@@ -1276,7 +1381,6 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
         frame = requestAnimationFrame(draw);
     });
     stops.push(platform.on('devicechange', () => {
-        syncTracker();
         if (drawerTab === 'profile') { drawerBody.dataset.html = ''; renderDrawerBody(); }
     }));
 
@@ -1285,12 +1389,12 @@ export function startRoom({ platform, view, go, deviceActions, editServer }, roo
     return () => {
         clearInterval(reportTimer);
         clearInterval(uiTimer);
+        clearInterval(videoTimer);
         cancelAnimationFrame(frame);
         window.removeEventListener('keydown', onKey);
         window.removeEventListener('resize', onResize);
         stops.forEach((stop) => stop());
         if (platform.bike?.pedaling === false) platform.bike.pedaling = true;
-        tracker?.destroy?.();
         room.leave();
     };
 }

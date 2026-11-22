@@ -16,7 +16,7 @@ import { BASE_URL, local } from './storage.js';
 import { importModule, setModuleSource } from './modules.js';
 
 export class Platform extends EventTarget {
-    backend = { mode: 'local', configured: false };
+    backend = { mode: 'local', configured: false, simulators: true };
     /** @type {ServerBackend | LocalBackend} */
     api = new LocalBackend();
     user = null;
@@ -250,8 +250,12 @@ export class Platform extends EventTarget {
         this.#emit('devicechange');
     }
 
+    /** May the simulated bike and heart rate monitor be used? ('simulators' in server/config.php) */
+    get simulatorsAllowed() { return this.backend.simulators !== false; }
+
     /** Connect a bike/trainer. Must be called from a click (the browser shows its device chooser). */
     async connectBike({ simulated = false } = {}) {
+        if (simulated && !this.simulatorsAllowed) throw new Error('The simulators are switched off on this site.');
         const { devices } = await this.loadModules();
         if (simulated) {
             this.#setDevice('bike', new devices.SimulatedBike({ riderMass: (this.settings.get('weight') ?? 75) + 10 }));
@@ -265,6 +269,7 @@ export class Platform extends EventTarget {
     }
 
     async connectHeartRate({ simulated = false } = {}) {
+        if (simulated && !this.simulatorsAllowed) throw new Error('The simulators are switched off on this site.');
         const { devices } = await this.loadModules();
         if (simulated) {
             this.#setDevice('heartRateMonitor', new devices.SimulatedHeartRateMonitor({

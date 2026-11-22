@@ -18,8 +18,11 @@ import { serverUrl, saveServerUrl, resolveDevice } from './net.js';
 import { $, setBackdrop, closeAllPopups, toggleFullscreen } from './shared.js';
 import { startLobby } from './lobby.js';
 import { startRoom } from './room.js';
+import { Ride } from './session.js';
 
 const platform = await getPlatform();
+// Your ride (recorded only when you press Start): one for the page, it goes on between rooms.
+const ride = new Ride(platform);
 let view = $('#view');
 let stopView = null;
 let afterRoute = null;
@@ -57,7 +60,7 @@ function route() {
     const fresh = view.cloneNode(false);
     view.replaceWith(fresh);
     view = fresh;
-    const context = { platform, view, go, deviceActions, editServer };
+    const context = { platform, view, go, deviceActions, editServer, ride };
 
     const [mode, encoded] = location.hash.slice(1).split('/');
     const room = decodeURIComponent(encoded ?? '');

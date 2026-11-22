@@ -37,7 +37,7 @@ let account = null;         // { label, rooms } while logged in with an authenti
 
 const roomPath = (name) => encodeURIComponent(name);
 
-export function startLobby({ platform, view, go, deviceActions, editServer }) {
+export function startLobby({ platform, view, go, deviceActions, editServer, ride }) {
     let editing = null;     // the room being edited: { room?, schedule } (no room: a new one)
     let accountError = null;
     let stopped = false;
@@ -386,7 +386,7 @@ export function startLobby({ platform, view, go, deviceActions, editServer }) {
         home: () => platform.home(),
         server: () => editServer(),
         fullscreen: () => toggleFullscreen(),
-        devices: () => showDevices(platform, deviceActions, renderDevices),
+        devices: () => showDevices(platform, deviceActions, renderDevices, { ride }),
         'profile-reset': () => { clearGameProfile(); renderJoin(); },
         logout: () => logout(),
         'account-retry': () => loadAccount(),

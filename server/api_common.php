@@ -10,6 +10,7 @@
  */
 
 require_once __DIR__ . '/database_link.php';
+require_once __DIR__ . '/mailer.php';
 
 /* ---------- Responses ---------- */
 
@@ -347,12 +348,13 @@ function mail_login_link(array $user): array
         . "Open this link to log in on your device:\r\n$link\r\n\r\n"
         . "The link keeps you logged in for one year. Anyone with the link can log in as you, so don't share it.\r\n"
         . "Didn't ask for this? Just ignore this e-mail.\r\n";
-    $headers = 'From: ' . $config['mail_from'] . "\r\nContent-Type: text/plain; charset=utf-8";
 
     $database->prepare('UPDATE user SET last_login_link_at = CURRENT_TIMESTAMP WHERE user_id = ?')->execute([$user['user_id']]);
 
     if (!empty($config['dev_return_login_link'])) return ['login_link' => $link];
-    if (!@mail($user['email'], $subject, $message, $headers)) {
+    $error = send_mail($config, $user['email'], $subject, $message);
+    if ($error !== null) {
+        error_log('Login e-mail not sent: ' . $error);     // the reason goes to the server log only
         fail('The login e-mail could not be sent. Try again later.', 500, 'mail');
     }
     return [];

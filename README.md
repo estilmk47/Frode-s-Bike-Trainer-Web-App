@@ -51,15 +51,18 @@ server.**
    - `database_file` – a long random name. The database is created automatically in `server/databases/`.
      The name is not in the repository, so nobody can guess where to download it from.
    - `site_url` – your public address (used in login links).
-   - `mail_from` – the sender of login e-mails (the server must be able to send mail with PHP's `mail()`).
+   - `mail_from` and `mail` – how login e-mails are sent: through a mail provider such as Gmail (SMTP with an
+     App password, needs `extension=openssl` in `php.ini`), or PHP's `mail()`. Test with
+     `php server/test_mail.php you@example.com`.
+   - `simulators` – `false` for a real release: the simulated bike and heart rate monitor ("Simulator" in Devices)
+     disappear everywhere. Leave it `true` while developing.
 3. **Apache:** the included `.htaccess` files block `server/databases/`, `config.php`, the SQL template and notes.
-   **nginx:** add the equivalent rules yourself, e.g.
+   **nginx:** [nginx.conf](nginx.conf) serves the site over HTTPS (also Party Spin's `wss://`) with the same
+   rules; how to start it is at the top of the file.
 
-   ```nginx
-   location ^~ /server/databases/ { deny all; }
-   location ~ ^/server/(config|config\.example|database_link|api_common)\.php$ { deny all; }
-   location ~ \.(sql|txt|md)$ { deny all; }
-   ```
+Login links: a link works on any number of devices until its owner makes a new one (Profile → Login link), which
+logs out every device. Private profiles can't be found or opened by others: the server answers as if the name
+didn't exist.
 
 ## Project structure
 

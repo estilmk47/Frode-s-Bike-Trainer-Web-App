@@ -131,6 +131,9 @@ INSERT INTO partyspin_event_type (type, name, planned, playable, description, se
         'By Sigrid Oen. The pot starts with a random number of points between pot_min and pot_max. For `duration` seconds everyone may put a share of their score in the pot; whoever has the highest score at the end wins the pot.',
         '{pot_min, pot_max, pot: points in the pot (in a game), bets: {device: points} (in a game)}',
         '{duration: s for betting}'),
+    ('flag', 'Flag', 1, 1,
+        'Switches a setting at a game time: break (nobody scores from riding) or powerups (cards can be played) on or off. A programme of breaks and legs-only parts. Not in the game log: riders see the switch in the top bar.',
+        NULL, '{flag: break | powerups, value: true | false}'),
     ('toast', 'Toast', 1, 0,
         'From the original game: a countdown, then a work interval, with cards for the best riders. Not made yet.',
         '{rewards}', '{countdown: s, work: s}'),
@@ -149,8 +152,8 @@ ON CONFLICT (type) DO UPDATE SET
     server_info = excluded.server_info, device_info = excluded.device_info;
 
 -- Everything that is planned for, or happens in, a room.
---   Planned events (run NULL) belong to the room and are part of every game in it: Hakoot questions
---   and poker rounds made in the create menu or by a moderator.
+--   Planned events (run NULL) belong to the room and are part of every game in it: Hakoot questions,
+--   poker rounds and flags made in the create menu or by a moderator.
 --   Game events (run n, numbered by seq 1, 2, 3 …) happened in game n: cards played, answers,
 --   a planned question when it was asked. Clients keep track of them by seq ("1-57"). They are
 --   kept when the room is restarted (see partyspin_run).

@@ -1,7 +1,8 @@
 <?php
 /*
  * GET                     – the logged-in user ({user: null} when nobody is logged in)
- * GET ?username=<name>    – a user's profile (everything for yourself, the public part for others)
+ * GET ?username=<name>    – a user's profile (everything for yourself, the public part for others;
+ *                           a private profile only for those who follow it, else "no such user")
  * GET ?search=<text>      – public users whose username or nickname matches (max 30)
  *
  * Allowed from this site, or from elsewhere with an API key (then only public information).
@@ -27,8 +28,11 @@ if (isset($_GET['search'])) {
 
 if (isset($_GET['username'])) {
     $row = find_user_by_username((string) $_GET['username']);
-    if (!$row) fail('There is no user with that name.', 404, 'not_found');
-    if ($viewer && (int) $viewer['user_id'] === (int) $row['user_id']) respond(['user' => own_user_json($row)]);
+    if ($row && $viewer && (int) $viewer['user_id'] === (int) $row['user_id']) respond(['user' => own_user_json($row)]);
+    // A private profile can't be found or opened: only friends who added it while it was public
+    // still see the name and picture (no stats). Same answer as a name that doesn't exist.
+    $visible = $row && ((int) $row['is_public'] === 1 || ($viewer && is_following((int) $viewer['user_id'], (int) $row['user_id'])));
+    if (!$visible) fail('There is no user with that name.', 404, 'not_found');
     respond(['user' => public_user_json($row, $viewer)]);
 }
 
